@@ -99,14 +99,6 @@ const handleAddStore = async () => {
   }
 };
 
-// UI 部分在輸入店名的旁邊加入：
-<input 
-  placeholder="店家電話 (選填)" 
-  value={newStorePhone}
-  onChange={e => setNewStorePhone(e.target.value)}
-  className="border border-gray-300 p-2 rounded h-10 flex-1 w-full text-gray-900 placeholder-gray-500 font-medium" 
-/>
-
   // ★ 修正 2：增加 imageUrl 參數，用來刪除雲端圖片
   const handleDeleteStore = async (id: number, name: string, imageUrl: string | null) => {
     const confirm = window.confirm(`確定要刪除「${name}」嗎？\n這會刪除該店家的所有資料與圖片！`);
@@ -247,6 +239,14 @@ const handleAddStore = async () => {
               value={newStoreName}
               onChange={e => setNewStoreName(e.target.value)}
               className="border border-gray-300 p-2 rounded h-10 flex-1 w-full text-gray-900 placeholder-gray-500 font-medium" 
+            />
+
+            {/* ★ 2. 店家電話輸入框 (新加入的位置) */}
+            <input 
+            placeholder="店家電話 (選填)" 
+            value={newStorePhone}
+            onChange={e => setNewStorePhone(e.target.value)}
+            className="border border-gray-300 p-2 rounded h-10 flex-1 w-full text-gray-900 placeholder-gray-500 font-medium" 
             />
             
             <div className="flex-1 w-full">
