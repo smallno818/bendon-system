@@ -9,7 +9,7 @@ export default function Home() {
   // 1. 從 Supabase 抓取菜單
   useEffect(() => {
     async function fetchMenu() {
-      const { data, error } = await supabase.from('bento_menu').select('*');
+      const { data, error } = await supabase.from('bendon menu').select('*');
       if (data) setMenu(data);
     }
     fetchMenu();
