@@ -7,7 +7,7 @@ type Store = {
   id: number;
   name: string;
   image_url: string | null;
-  phone: string | null; // ★ 新增電話欄位
+  phone: string | null;
 };
 
 type Product = {
@@ -19,6 +19,7 @@ type Product = {
 };
 
 type Order = {
+  id: number; // ★ 新增 id 欄位，刪除時需要用到
   item_name: string;
   price: number;
   customer_name: string;
@@ -28,7 +29,8 @@ type SummaryItem = {
   name: string;
   count: number;
   total: number;
-  names: string[];
+  // ★ 修改：為了能單獨刪除，這裡改存訂單物件的陣列
+  orderDetails: { id: number; customer_name: string }[];
 };
 
 export default function Home() {
@@ -143,11 +145,11 @@ export default function Home() {
     const stats: Record<string, SummaryItem> = {};
     ordersData.forEach(order => {
       if (!stats[order.item_name]) {
-        stats[order.item_name] = { name: order.item_name, count: 0, total: 0, names: [] };
+        stats[order.item_name] = { name: order.item_name, count: 0, total: 0, orderDetails: [] };
       }
       stats[order.item_name].count += 1;
       stats[order.item_name].total += order.price;
-      stats[order.item_name].names.push(order.customer_name);
+      stats[order.item_name].orderDetails.push({ id: order.id, customer_name: order.customer_name });
     });
     setSummary(Object.values(stats));
   };
@@ -169,6 +171,23 @@ export default function Home() {
       setCustomItemPrice('');
     } else {
       alert('失敗：' + error.message);
+    }
+  };
+
+  // ★ 新增：刪除單筆餐點功能
+  const handleDeleteOrder = async (orderId: number, customerName: string) => {
+    const confirmName = prompt(`確定要刪除 ${customerName} 的這份餐點嗎？\n請輸入你的名字「${customerName}」進行確認：`);
+    
+    if (confirmName === customerName) {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (!error) {
+        alert('餐點已成功刪除！');
+        fetchTodayOrders();
+      } else {
+        alert('刪除失敗：' + error.message);
+      }
+    } else if (confirmName !== null) {
+      alert('名字輸入不正確，刪除失敗。');
     }
   };
 
@@ -222,11 +241,10 @@ export default function Home() {
             )}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <h1 className="text-white text-4xl font-bold shadow-black drop-shadow-lg">{currentStore.name}</h1>
-              {/* ★ 新增：電話顯示，點擊可撥打 */}
               {currentStore.phone && (
                 <a 
                   href={`tel:${currentStore.phone}`}
-                  onClick={(e) => e.stopPropagation()} // 避免觸發大圖
+                  onClick={(e) => e.stopPropagation()}
                   className="mt-3 text-white bg-green-600/80 hover:bg-green-600 px-4 py-1.5 rounded-full text-sm font-bold backdrop-blur-sm pointer-events-auto flex items-center gap-2"
                 >
                   📞 點我撥打：{currentStore.phone}
@@ -349,7 +367,23 @@ export default function Home() {
                           </td>
                           <td className="p-3 text-right text-gray-500">${Math.round(row.total / row.count)}</td>
                           <td className="p-3 text-right font-bold text-gray-800">${row.total}</td>
-                          <td className="p-3 text-sm text-gray-500">{row.names.join(', ')}</td>
+                          <td className="p-3 text-sm text-gray-500">
+                            {/* ★ 修正：顯示名字與刪除按鈕 */}
+                            <div className="flex flex-wrap gap-2">
+                              {row.orderDetails.map((detail) => (
+                                <span key={detail.id} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-200">
+                                  {detail.customer_name}
+                                  <button 
+                                    onClick={() => handleDeleteOrder(detail.id, detail.customer_name)}
+                                    className="text-red-400 hover:text-red-600 font-bold ml-1 print:hidden"
+                                    title="刪除此份餐點"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
