@@ -19,12 +19,10 @@ type Product = {
 
 export default function AdminPage() {
   const [stores, setStores] = useState<Store[]>([]);
-  // 新增店家用的狀態
   const [newStoreName, setNewStoreName] = useState('');
   const [newStoreImage, setNewStoreImage] = useState(''); 
   const [uploading, setUploading] = useState(false);
   
-  // 編輯菜單用的狀態 (Modal)
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [menuItems, setMenuItems] = useState<Product[]>([]);
   const [newItemName, setNewItemName] = useState('');
@@ -35,8 +33,6 @@ export default function AdminPage() {
     fetchStores();
   }, []);
 
-  // --- 基礎店家功能 ---
-
   const fetchStores = async () => {
     setLoading(true);
     const { data } = await supabase.from('stores').select('*').order('id', { ascending: true });
@@ -46,6 +42,11 @@ export default function AdminPage() {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    
+    // ★ 修正 1：不管選了什麼，先重置 input 的值
+    // 這樣如果你上傳失敗，再次選擇同一個檔案時，才會觸發 onChange
+    e.target.value = '';
+
     if (!file) return;
 
     setUploading(true);
@@ -53,25 +54,22 @@ export default function AdminPage() {
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    // ★ 修正點：這裡改成你的 bucket 名稱 'stores_picture'
     const { error: uploadError } = await supabase.storage
       .from('stores_picture') 
       .upload(filePath, file);
 
     if (uploadError) {
-      alert('圖片上傳失敗: ' + uploadError.message + '\n請確認 Supabase Storage 是否已建立 stores_picture bucket 並且設為 Public。');
+      alert('圖片上傳失敗: ' + uploadError.message);
       setUploading(false);
       return;
     }
 
-    // ★ 修正點：這裡也要改成 'stores_picture' 才能取得正確網址
     const { data } = supabase.storage.from('stores_picture').getPublicUrl(filePath);
     
     setNewStoreImage(data.publicUrl);
     setUploading(false);
   };
 
-  // 使用 upsert 來處理「新增或更新」
   const handleAddStore = async () => {
     if (!newStoreName.trim()) return alert('請輸入店名');
     
@@ -83,21 +81,54 @@ export default function AdminPage() {
       .select();
 
     if (!error) {
-      alert('✅ 店家資訊已儲存 (若店名重複則已更新圖片)');
+      alert('✅ 店家資訊已儲存');
       setNewStoreName('');
       setNewStoreImage('');
       fetchStores();
     } else {
-      alert('❌ 儲存失敗: ' + error.message + '\n(請確認是否有執行 SQL 指令設定 name 為 unique)');
+      alert('❌ 儲存失敗: ' + error.message);
     }
   };
 
-  const handleDeleteStore = async (id: number, name: string) => {
-    if (!window.confirm(`確定要刪除「${name}」嗎？這會連同菜單一起刪除！`)) return;
-    await supabase.from('products').delete().eq('store_id', id);
-    const { error } = await supabase.from('stores').delete().eq('id', id);
-    if (!error) fetchStores();
-    else alert('刪除失敗: ' + error.message);
+  // ★ 修正 2：增加 imageUrl 參數，用來刪除雲端圖片
+  const handleDeleteStore = async (id: number, name: string, imageUrl: string | null) => {
+    const confirm = window.confirm(`確定要刪除「${name}」嗎？\n這會刪除該店家的所有資料與圖片！`);
+    if (!confirm) return;
+
+    try {
+      // A. 先刪除關聯資料 (菜單 & 每日狀態)
+      await supabase.from('products').delete().eq('store_id', id);
+      await supabase.from('daily_status').delete().eq('active_store_id', id);
+
+      // B. ★ 新增：刪除雲端圖片 (如果有的話)
+      if (imageUrl) {
+        // 從網址中解析出檔案名稱
+        // 範例網址: .../stores_picture/170988888.png
+        // 我們只需要最後面的 "170988888.png"
+        const fileName = imageUrl.split('/').pop();
+        if (fileName) {
+          const { error: storageError } = await supabase.storage
+            .from('stores_picture')
+            .remove([fileName]);
+            
+          if (storageError) {
+            console.error('圖片刪除失敗，但將繼續刪除店家資料:', storageError);
+          }
+        }
+      }
+
+      // C. 最後刪除店家紀錄
+      const { error } = await supabase.from('stores').delete().eq('id', id);
+      
+      if (!error) {
+        alert('🗑️ 刪除成功');
+        fetchStores();
+      } else {
+        throw error;
+      }
+    } catch (error: any) {
+      alert('刪除失敗: ' + error.message);
+    }
   };
 
   // --- 菜單管理功能 (Modal 內) ---
@@ -148,8 +179,8 @@ export default function AdminPage() {
 
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = ''; // 這裡原本就有，不用改
     if (!file || !editingStore) return;
-    e.target.value = '';
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -189,7 +220,7 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">🛠️ 後台資料管理</h1>
 
-        {/* 新增店家區塊 (包含圖片上傳) */}
+        {/* 新增店家區塊 */}
         <div className="bg-white p-6 rounded-xl shadow-md mb-8">
           <h2 className="text-xl font-bold mb-4 text-gray-700">➕ 新增 / 更新店家</h2>
           <p className="text-sm text-gray-500 mb-4">💡 提示：如果輸入相同的店名，將會更新該店家的圖片。</p>
@@ -254,7 +285,8 @@ export default function AdminPage() {
                   📝 管理菜單
                 </button>
                 <button 
-                  onClick={() => handleDeleteStore(store.id, store.name)}
+                  // ★ 修正 3：這裡呼叫時多傳了 store.image_url，讓刪除功能知道要刪哪張圖
+                  onClick={() => handleDeleteStore(store.id, store.name, store.image_url)}
                   className="bg-red-50 text-red-600 px-3 rounded-lg hover:bg-red-100"
                 >
                   🗑️
@@ -265,7 +297,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* 編輯菜單 Modal */}
+      {/* 編輯菜單 Modal (無變動，保持原樣) */}
       {editingStore && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
@@ -274,34 +306,17 @@ export default function AdminPage() {
               <button onClick={closeEditModal} className="text-gray-400 hover:text-white text-2xl">×</button>
             </div>
             <div className="p-6 overflow-y-auto flex-1">
-              
-              {/* Excel 上傳區 */}
               <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                 <label className="font-bold text-blue-800 block mb-2">批次匯入 / 更新 (Excel)</label>
                 <div className="flex items-center gap-2">
                   <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
                 </div>
               </div>
-
-              {/* 手動新增區 */}
               <div className="flex gap-2 mb-6 border-b pb-6">
-                <input 
-                  placeholder="品項名稱" 
-                  value={newItemName} 
-                  onChange={e => setNewItemName(e.target.value)} 
-                  className="border border-gray-300 p-2 rounded flex-1 text-gray-900 placeholder-gray-500 font-medium" 
-                />
-                <input 
-                  type="number" 
-                  placeholder="價格" 
-                  value={newItemPrice} 
-                  onChange={e => setNewItemPrice(e.target.value)} 
-                  className="border border-gray-300 p-2 rounded w-24 text-gray-900 placeholder-gray-500 font-medium" 
-                />
+                <input placeholder="品項名稱" value={newItemName} onChange={e => setNewItemName(e.target.value)} className="border border-gray-300 p-2 rounded flex-1 text-gray-900 placeholder-gray-500 font-medium" />
+                <input type="number" placeholder="價格" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} className="border border-gray-300 p-2 rounded w-24 text-gray-900 placeholder-gray-500 font-medium" />
                 <button onClick={handleAddSingleItem} className="bg-orange-500 text-white px-4 rounded hover:bg-orange-600">＋ 新增</button>
               </div>
-
-              {/* 列表編輯區 */}
               <table className="w-full text-left">
                 <thead className="bg-gray-100 text-gray-500 text-sm">
                   <tr><th className="p-2 pl-4">品項</th><th className="p-2 w-24">價格</th><th className="p-2 w-10"></th></tr>
@@ -310,14 +325,7 @@ export default function AdminPage() {
                   {menuItems.map(item => (
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td className="p-2 pl-4 text-gray-800 font-medium">{item.name}</td>
-                      <td className="p-2">
-                        <input 
-                          type="number" 
-                          defaultValue={item.price} 
-                          onBlur={(e) => handleUpdatePrice(item.id, parseInt(e.target.value))} 
-                          className="border border-gray-300 rounded w-20 px-2 py-1 text-center focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-bold"
-                        />
-                      </td>
+                      <td className="p-2"><input type="number" defaultValue={item.price} onBlur={(e) => handleUpdatePrice(item.id, parseInt(e.target.value))} className="border border-gray-300 rounded w-20 px-2 py-1 text-center focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-bold"/></td>
                       <td className="p-2 text-right"><button onClick={() => handleDeleteItem(item.id)} className="text-red-400 hover:text-red-600 px-2">×</button></td>
                     </tr>
                   ))}
