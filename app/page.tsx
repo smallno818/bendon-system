@@ -9,7 +9,11 @@ export default function Home() {
   // 1. 從 Supabase 抓取菜單
   useEffect(() => {
     async function fetchMenu() {
-      const { data, error } = await supabase.from('bendon menu').select('*');
+      const { data, error } = await supabase.from('bento_menu').select('*');
+      if (error) {
+        console.error('抓取失敗:', error.message);
+        alert('資料庫抓取失敗: ' + error.message);
+      }
       if (data) setMenu(data);
     }
     fetchMenu();
