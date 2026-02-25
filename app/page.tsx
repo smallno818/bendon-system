@@ -48,34 +48,39 @@ export default function Home() {
     // 1. 執行初始檢查
     checkDailyStatus();
 
-    // ★ 2. 啟動 Real-time 監聽
-    // 監聽 orders 表格的所有變動 (INSERT, UPDATE, DELETE)
+    // ★ 2. 修正後的 Real-time 監聽語法
     const ordersChannel = supabase
-      .channel('custom-all-channel')
+      .channel('realtime_orders')
       .on(
-        'postgres_changes',
-        { event: '*', table: 'orders' },
+        'postgres_changes' as any, // 強制指定型別以避開 TS 錯誤
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+        },
         () => {
-          console.log('偵測到訂單變動，更新統計中...');
+          console.log('偵測到訂單變動');
           fetchTodayOrders();
         }
       )
       .subscribe();
 
-    // 監聽 daily_status 表格變動 (換店家時即時同步)
     const statusChannel = supabase
-      .channel('status-channel')
+      .channel('realtime_status')
       .on(
-        'postgres_changes',
-        { event: '*', table: 'daily_status' },
+        'postgres_changes' as any, // 強制指定型別以避開 TS 錯誤
+        {
+          event: '*',
+          schema: 'public',
+          table: 'daily_status',
+        },
         () => {
-          console.log('偵測到店家狀態變動，同步畫面中...');
+          console.log('偵測到店家變動');
           checkDailyStatus();
         }
       )
       .subscribe();
 
-    // 組件卸載時取消訂閱
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(statusChannel);
