@@ -41,7 +41,7 @@ export default function Home() {
   // 控制是否顯示大圖的狀態
   const [showLargeImage, setShowLargeImage] = useState(false);
 
-  // ★ 新增：自訂品項的狀態
+  // 自訂品項的狀態
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
 
@@ -177,7 +177,6 @@ export default function Home() {
     if (!error) {
       alert('點餐成功！');
       fetchTodayOrders();
-      // 清空自訂欄位
       setCustomItemName('');
       setCustomItemPrice('');
     } else {
@@ -190,7 +189,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0 relative">
       
-      {/* 畫面 A: 選擇店家列表 */}
       {!currentStore && (
         <div className="max-w-4xl mx-auto p-6">
           <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">🤷‍♂️ 今天吃什麼？</h1>
@@ -223,10 +221,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* 畫面 B: 顯示菜單與訂單 */}
       {currentStore && (
         <>
-          {/* Banner 區域 */}
           <div 
             className="w-full h-48 bg-gray-800 relative overflow-hidden group print:hidden cursor-zoom-in"
             onClick={() => setShowLargeImage(true)}
@@ -241,20 +237,19 @@ export default function Home() {
             </div>
           </div>
 
-          {/* ★ 修正後的「換一家吃」按鈕：改為右下角懸浮按鈕，更加醒目 */}
+          {/* ★ 修改後的「換一家吃」按鈕：直接顯示文字，更醒目 */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
               handleResetStore();
             }}
-            className="fixed bottom-6 right-6 z-40 bg-orange-600 text-white p-4 rounded-full shadow-2xl hover:bg-orange-700 transition-all hover:scale-110 group print:hidden flex items-center gap-2"
+            className="fixed bottom-8 right-8 z-40 bg-orange-600 text-white px-6 py-4 rounded-2xl shadow-2xl hover:bg-orange-700 transition-all hover:scale-105 active:scale-95 print:hidden flex items-center gap-2 border-2 border-white/20"
           >
             <span className="text-xl">🔄</span>
-            <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 font-bold whitespace-nowrap">換一家吃</span>
+            <span className="font-bold text-lg tracking-wider">換一家</span>
           </button>
 
           <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
-            {/* 菜單區 */}
             <div className="flex items-center gap-2 mb-4 print:hidden">
                <span className="text-2xl">🍱</span>
                <h2 className="text-xl font-bold text-gray-800">美味菜單</h2>
@@ -280,7 +275,6 @@ export default function Home() {
               ))}
             </div>
 
-            {/* ★ 新增：客製化品項輸入框 */}
             <div className="mb-12 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xl">✏️</span>
@@ -316,7 +310,6 @@ export default function Home() {
               <p className="text-xs text-gray-400 mt-2">* 自訂需求將會自動加入下方的統計清單中</p>
             </div>
 
-            {/* 訂單統計區 */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 print:shadow-none print:border-none print:w-full print:p-0">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
@@ -384,7 +377,6 @@ export default function Home() {
             </div>
           </div>
           
-          {/* 全螢幕大圖燈箱 */}
           {showLargeImage && currentStore?.image_url && (
             <div 
               className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
