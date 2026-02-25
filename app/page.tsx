@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// 定義資料型別，讓 TypeScript 不會報錯
+// 定義資料型別
 type Store = {
   id: number;
   name: string;
@@ -11,6 +11,7 @@ type Store = {
 
 type Product = {
   id: number;
+  store_id: number;
   name: string;
   price: number;
   description: string | null;
@@ -46,7 +47,6 @@ export default function Home() {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
 
-    // 找找看今天有沒有 active 的店家紀錄
     const { data: statusData } = await supabase
       .from('daily_status')
       .select('active_store_id, order_date')
@@ -75,16 +75,21 @@ export default function Home() {
     fetchTodayOrders();
   };
 
-  // 3. 決定吃這家
+  // ★ 重點修正 3. 決定吃這家 (同時清空舊訂單)
   const handleSelectStore = async (storeId: number) => {
     // eslint-disable-next-line no-restricted-globals
-    const confirm = window.confirm('確定今天要吃這家嗎？舊的今日訂單統計將會重置。');
+    const confirm = window.confirm('確定今天要吃這家嗎？\n⚠️ 注意：這會「清空」今天目前為止的所有訂單，重新開始團購！');
     if (!confirm) return;
 
     const today = new Date().toISOString().split('T')[0];
     
+    // A. 清除今天的「每日店家狀態」
     await supabase.from('daily_status').delete().eq('order_date', today);
     
+    // B. ★ 新增：清除今天的「所有訂單」 (避免上一家的單留著)
+    await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
+
+    // C. 設定新的店家
     const { error } = await supabase.from('daily_status').insert([{ 
       active_store_id: storeId,
       order_date: today
@@ -92,20 +97,29 @@ export default function Home() {
 
     if (!error) {
       loadStoreData(storeId);
+      setOrders([]); // 前端也同步清空
+      setSummary([]);
     }
   };
 
-  // 4. 重設店家
+  // ★ 重點修正 4. 重設店家 (回到選擇列表)
   const handleResetStore = async () => {
     // eslint-disable-next-line no-restricted-globals
-    const confirm = window.confirm('確定要換一家吃嗎？注意：大家可能已經下單了喔！');
+    const confirm = window.confirm('確定要換一家吃嗎？\n⚠️ 這會「清空」大家已經點的餐喔！');
     if (!confirm) return;
 
     const today = new Date().toISOString().split('T')[0];
+    
+    // 清除狀態
     await supabase.from('daily_status').delete().eq('order_date', today);
+    // 清除訂單 (雙重保險，重置時也清空)
+    await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
 
     setCurrentStore(null);
     setMenu([]);
+    setOrders([]); // 清空
+    setSummary([]);
+
     const { data: stores } = await supabase.from('stores').select('*');
     if (stores) setStoreList(stores);
   };
