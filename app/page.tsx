@@ -75,21 +75,27 @@ export default function Home() {
     fetchTodayOrders();
   };
 
-  // ★ 重點修正 3. 決定吃這家 (同時清空舊訂單)
+  // 3. 決定吃這家 (智慧判斷)
   const handleSelectStore = async (storeId: number) => {
-    // eslint-disable-next-line no-restricted-globals
-    const confirm = window.confirm('確定今天要吃這家嗎？\n⚠️ 注意：這會「清空」今天目前為止的所有訂單，重新開始團購！');
-    if (!confirm) return;
-
     const today = new Date().toISOString().split('T')[0];
-    
-    // A. 清除今天的「每日店家狀態」
-    await supabase.from('daily_status').delete().eq('order_date', today);
-    
-    // B. ★ 新增：清除今天的「所有訂單」 (避免上一家的單留著)
-    await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
 
-    // C. 設定新的店家
+    // 先檢查今天目前為止有幾筆訂單
+    const { count } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', `${today}T00:00:00`);
+
+    // 如果已經有人點餐，才跳出警告
+    if (count && count > 0) {
+      // eslint-disable-next-line no-restricted-globals
+      const confirm = window.confirm(`⚠️ 注意：今天已經有 ${count} 人點餐了！\n換店家將會「清空」這些訂單，確定要執行嗎？`);
+      if (!confirm) return;
+
+      await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
+    }
+
+    // 設定新的店家
+    await supabase.from('daily_status').delete().eq('order_date', today);
     const { error } = await supabase.from('daily_status').insert([{ 
       active_store_id: storeId,
       order_date: today
@@ -97,27 +103,33 @@ export default function Home() {
 
     if (!error) {
       loadStoreData(storeId);
-      setOrders([]); // 前端也同步清空
+      setOrders([]); 
       setSummary([]);
     }
   };
 
-  // ★ 重點修正 4. 重設店家 (回到選擇列表)
+  // 4. 重設店家
   const handleResetStore = async () => {
-    // eslint-disable-next-line no-restricted-globals
-    const confirm = window.confirm('確定要換一家吃嗎？\n⚠️ 這會「清空」大家已經點的餐喔！');
-    if (!confirm) return;
-
     const today = new Date().toISOString().split('T')[0];
-    
-    // 清除狀態
+
+    const { count } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', `${today}T00:00:00`);
+
+    if (count && count > 0) {
+      // eslint-disable-next-line no-restricted-globals
+      const confirm = window.confirm('確定要換一家吃嗎？\n⚠️ 這會「清空」大家已經點的餐喔！');
+      if (!confirm) return;
+      
+      await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
+    }
+
     await supabase.from('daily_status').delete().eq('order_date', today);
-    // 清除訂單 (雙重保險，重置時也清空)
-    await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
 
     setCurrentStore(null);
     setMenu([]);
-    setOrders([]); // 清空
+    setOrders([]);
     setSummary([]);
 
     const { data: stores } = await supabase.from('stores').select('*');
@@ -180,8 +192,9 @@ export default function Home() {
       {/* 畫面 A: 選擇店家列表 */}
       {!currentStore && (
         <div className="max-w-4xl mx-auto p-6">
-          <h1 className="text-3xl font-bold text-center mb-2">🤷‍♂️ 今天吃什麼？</h1>
-          <p className="text-gray-500 text-center mb-8">請選擇一間餐廳開啟今日團購</p>
+          {/* 修改點：加入 text-gray-900 確保標題最黑，副標題改為 text-gray-600 */}
+          <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">🤷‍♂️ 今天吃什麼？</h1>
+          <p className="text-gray-600 text-center mb-8 font-medium">請選擇一間餐廳開啟今日團購</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {storeList.map(store => (
