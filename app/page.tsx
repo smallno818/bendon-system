@@ -38,6 +38,9 @@ export default function Home() {
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ★ 新增：控制是否顯示大圖的狀態
+  const [showLargeImage, setShowLargeImage] = useState(false);
+
   useEffect(() => {
     checkDailyStatus();
   }, []);
@@ -184,7 +187,6 @@ export default function Home() {
   if (loading) return <div className="p-10 text-center text-gray-500">載入中...</div>;
 
   return (
-    // 修改點：加入 print:bg-white 確保列印背景純白
     <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0">
       
       {/* 畫面 A: 選擇店家列表 */}
@@ -223,32 +225,39 @@ export default function Home() {
       {/* 畫面 B: 顯示菜單與訂單 */}
       {currentStore && (
         <>
-          {/* Banner - 修改點：加入 print:hidden */}
-          <div className="w-full h-48 bg-gray-800 relative overflow-hidden group print:hidden">
+          {/* Banner 區域 - 加入 cursor-zoom-in 提示可以點 */}
+          <div 
+            className="w-full h-48 bg-gray-800 relative overflow-hidden group print:hidden cursor-zoom-in"
+            onClick={() => setShowLargeImage(true)} // ★ 點擊時開啟大圖
+            title="點擊查看大圖"
+          >
             {currentStore.image_url && (
-              <img src={currentStore.image_url} alt={currentStore.name} className="w-full h-full object-cover opacity-60" />
+              <img src={currentStore.image_url} alt={currentStore.name} className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition" />
             )}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <h1 className="text-white text-4xl font-bold shadow-black drop-shadow-lg">{currentStore.name}</h1>
               <p className="text-gray-200 mt-2 text-sm bg-black/30 px-3 py-1 rounded">今日團購進行中</p>
-              
-              <button 
-                onClick={handleResetStore}
-                className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white text-xs px-3 py-1 rounded backdrop-blur-sm border border-white/30"
-              >
-                🔄 換一家吃
-              </button>
             </div>
+
+            {/* 按鈕必須加上 stopPropagation，避免點按鈕時誤觸發大圖 */}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation(); // 防止點到按鈕時也跳出圖片
+                handleResetStore();
+              }}
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white text-xs px-3 py-1 rounded backdrop-blur-sm border border-white/30 pointer-events-auto"
+            >
+              🔄 換一家吃
+            </button>
           </div>
 
           <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
-            {/* 菜單區 - 修改點：加入 print:hidden */}
+            {/* 菜單區 */}
             <div className="flex items-center gap-2 mb-4 print:hidden">
                <span className="text-2xl">🍱</span>
                <h2 className="text-xl font-bold text-gray-800">美味菜單</h2>
             </div>
             
-            {/* 菜單列表 - 修改點：加入 print:hidden */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12 print:hidden">
               {menu.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col justify-between h-full">
@@ -270,23 +279,15 @@ export default function Home() {
             </div>
 
             {/* 訂單統計區 */}
-            {/* 修改點：
-                1. 移除 print:shadow-none (因為要讓它看起來像一張完整的紙)
-                2. print:border-none (移除邊框)
-                3. print:w-full (滿版)
-            */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 print:shadow-none print:border-none print:w-full print:p-0">
-              {/* 按鈕與標題區 - 修改點：標題保留，但按鈕要 print:hidden */}
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl print:hidden">📋</span>
-                  {/* 列印時標題加大，並加上店名 */}
                   <h2 className="text-2xl font-bold text-gray-800 print:text-3xl">
                     <span className="hidden print:inline">{currentStore.name} - </span>
                     今日訂單統計
                   </h2>
                 </div>
-                {/* 列印按鈕 - 修改點：print:hidden */}
                 <button 
                   onClick={() => window.print()} 
                   className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-lg shadow-gray-300/50 print:hidden"
@@ -337,7 +338,6 @@ export default function Home() {
                     </tfoot>
                   </table>
                   
-                  {/* 列印時底部的簽名區或時間 */}
                   <div className="hidden print:block mt-8 text-right text-sm text-gray-500">
                     列印時間: {new Date().toLocaleString()}
                   </div>
@@ -345,6 +345,24 @@ export default function Home() {
               )}
             </div>
           </div>
+          
+          {/* ★ 新增：全螢幕大圖燈箱 (Lightbox) */}
+          {showLargeImage && currentStore.image_url && (
+            <div 
+              className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
+              onClick={() => setShowLargeImage(false)}
+            >
+              <img 
+                src={currentStore.image_url} 
+                alt={currentStore.name} 
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+              <button className="absolute top-6 right-6 text-white text-4xl opacity-70 hover:opacity-100 transition">
+                &times;
+              </button>
+              <p className="absolute bottom-6 text-white/50 text-sm">點擊任意處關閉</p>
+            </div>
+          )}
         </>
       )}
     </div>
