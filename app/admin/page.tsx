@@ -21,7 +21,8 @@ export default function AdminPage() {
   const [stores, setStores] = useState<Store[]>([]);
   // 新增店家用的狀態
   const [newStoreName, setNewStoreName] = useState('');
-  const [newStoreImage, setNewStoreImage] = useState('');
+  const [newStoreImage, setNewStoreImage] = useState(''); // 這裡存的是上傳後的網址
+  const [uploading, setUploading] = useState(false);     // 上傳讀取條狀態
   
   // 編輯菜單用的狀態 (Modal)
   const [editingStore, setEditingStore] = useState<Store | null>(null);
@@ -43,9 +44,42 @@ export default function AdminPage() {
     setLoading(false);
   };
 
+  // 處理圖片上傳
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // 1. 上傳到 Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('store-images')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      alert('圖片上傳失敗: ' + uploadError.message);
+      setUploading(false);
+      return;
+    }
+
+    // 2. 取得公開網址
+    const { data } = supabase.storage.from('store-images').getPublicUrl(filePath);
+    
+    // 3. 將網址存入狀態
+    setNewStoreImage(data.publicUrl);
+    setUploading(false);
+  };
+
   const handleAddStore = async () => {
     if (!newStoreName.trim()) return alert('請輸入店名');
-    const { error } = await supabase.from('stores').insert([{ name: newStoreName, image_url: newStoreImage }]);
+    
+    const { error } = await supabase.from('stores').insert([
+      { name: newStoreName, image_url: newStoreImage }
+    ]);
+
     if (!error) {
       alert('✅ 店家新增成功');
       setNewStoreName('');
@@ -66,7 +100,6 @@ export default function AdminPage() {
 
   // --- 菜單管理功能 (Modal 內) ---
 
-  // 開啟編輯視窗
   const openEditModal = async (store: Store) => {
     setEditingStore(store);
     fetchMenu(store.id);
@@ -82,7 +115,6 @@ export default function AdminPage() {
     if (data) setMenuItems(data);
   };
 
-  // 1. 網頁單筆新增
   const handleAddSingleItem = async () => {
     if (!newItemName || !newItemPrice || !editingStore) return alert('請輸入完整資訊');
     
@@ -95,30 +127,27 @@ export default function AdminPage() {
     if (!error) {
       setNewItemName('');
       setNewItemPrice('');
-      fetchMenu(editingStore.id); // 重新抓取顯示
+      fetchMenu(editingStore.id);
     } else {
-      alert('新增失敗 (可能是名稱重複): ' + error.message);
+      alert('新增失敗: ' + error.message);
     }
   };
 
-  // 2. 網頁單筆刪除
   const handleDeleteItem = async (itemId: number) => {
     if (!window.confirm('確定刪除此品項？')) return;
     const { error } = await supabase.from('products').delete().eq('id', itemId);
     if (!error && editingStore) fetchMenu(editingStore.id);
   };
 
-  // 3. 網頁單筆修改價格 (失去焦點時觸發)
   const handleUpdatePrice = async (itemId: number, newPrice: number) => {
     const { error } = await supabase.from('products').update({ price: newPrice }).eq('id', itemId);
     if (error) alert('更新失敗');
   };
 
-  // 4. Excel 匯入 (Upsert: 新增或更新)
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editingStore) return;
-    e.target.value = ''; // 重置 input
+    e.target.value = '';
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -140,8 +169,6 @@ export default function AdminPage() {
 
       if (productsToUpsert.length === 0) return alert('Excel 格式錯誤或無資料');
 
-      // 使用 upsert，並指定 onConflict 為 store_id, name
-      // 這代表：如果 (store_id + name) 相同，就更新 price；如果不同，就 insert
       const { error } = await supabase
         .from('products')
         .upsert(productsToUpsert, { onConflict: 'store_id, name' });
@@ -160,14 +187,47 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">🛠️ 後台資料管理</h1>
 
-        {/* 新增店家區塊 */}
+        {/* 新增店家區塊 (包含圖片上傳) */}
         <div className="bg-white p-6 rounded-xl shadow-md mb-8">
           <h2 className="text-xl font-bold mb-4 text-gray-700">➕ 新增店家</h2>
-          <div className="flex gap-4">
-            <input placeholder="店名" value={newStoreName} onChange={e => setNewStoreName(e.target.value)} className="border p-2 rounded flex-1" />
-            <input placeholder="圖片網址" value={newStoreImage} onChange={e => setNewStoreImage(e.target.value)} className="border p-2 rounded flex-1" />
-            <button onClick={handleAddStore} className="bg-blue-600 text-white px-6 rounded hover:bg-blue-700">新增</button>
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+            <input 
+              placeholder="店名 (例如: 悟饕池上便當)" 
+              value={newStoreName}
+              onChange={e => setNewStoreName(e.target.value)}
+              // 修改點：加入 text-gray-900 確保文字是深黑色
+              className="border border-gray-300 p-2 rounded h-10 flex-1 w-full text-gray-900 placeholder-gray-500 font-medium" 
+            />
+            
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-bold text-gray-700 mb-1">
+                店家圖片 {uploading && <span className="text-orange-500">(上傳中...)</span>}
+              </label>
+              <input 
+                type="file" 
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              {newStoreImage && (
+                <p className="text-xs text-green-600 mt-1">✅ 圖片已就緒</p>
+              )}
+            </div>
+
+            <button 
+              onClick={handleAddStore} 
+              disabled={uploading}
+              className={`px-6 h-10 rounded text-white font-bold transition ${uploading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+            >
+              {uploading ? '處理中' : '新增'}
+            </button>
           </div>
+          
+          {newStoreImage && (
+             <div className="mt-4 w-32 h-32 bg-gray-100 rounded overflow-hidden border">
+               <img src={newStoreImage} alt="預覽" className="w-full h-full object-cover" />
+             </div>
+          )}
         </div>
 
         {/* 店家列表 */}
@@ -175,10 +235,14 @@ export default function AdminPage() {
           {stores.map(store => (
             <div key={store.id} className="bg-white p-5 rounded-xl shadow hover:shadow-lg transition border border-gray-200">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-gray-200 rounded-full overflow-hidden">
-                   {store.image_url && <img src={store.image_url} className="w-full h-full object-cover" />}
+                <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
+                   {store.image_url ? (
+                     <img src={store.image_url} alt={store.name} className="w-full h-full object-cover" />
+                   ) : (
+                     <span className="flex items-center justify-center h-full text-gray-400 text-xs">無圖</span>
+                   )}
                 </div>
-                <h3 className="text-lg font-bold">{store.name}</h3>
+                <h3 className="text-lg font-bold truncate text-gray-800">{store.name}</h3>
               </div>
               <div className="flex justify-between gap-2">
                 <button 
@@ -199,73 +263,70 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* 編輯菜單 Modal (彈出視窗) */}
+      {/* 編輯菜單 Modal */}
       {editingStore && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            
-            {/* Modal Header */}
             <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
               <h2 className="text-xl font-bold">正在編輯：{editingStore.name}</h2>
               <button onClick={closeEditModal} className="text-gray-400 hover:text-white text-2xl">×</button>
             </div>
-
-            {/* Modal Body */}
             <div className="p-6 overflow-y-auto flex-1">
               
-              {/* 1. Excel 匯入區 */}
+              {/* Excel 上傳區 */}
               <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                 <label className="font-bold text-blue-800 block mb-2">批次匯入 / 更新 (Excel)</label>
                 <div className="flex items-center gap-2">
                   <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700" />
-                  <span className="text-xs text-blue-600">若菜名相同會自動更新價格</span>
                 </div>
               </div>
 
-              {/* 2. 手動新增區 */}
+              {/* 手動新增區 */}
               <div className="flex gap-2 mb-6 border-b pb-6">
-                <input placeholder="品項名稱" value={newItemName} onChange={e => setNewItemName(e.target.value)} className="border p-2 rounded flex-1" />
-                <input type="number" placeholder="價格" value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} className="border p-2 rounded w-24" />
+                <input 
+                  placeholder="品項名稱" 
+                  value={newItemName} 
+                  onChange={e => setNewItemName(e.target.value)} 
+                  // 修改點：加入 text-gray-900 確保文字是深黑色
+                  className="border border-gray-300 p-2 rounded flex-1 text-gray-900 placeholder-gray-500 font-medium" 
+                />
+                <input 
+                  type="number" 
+                  placeholder="價格" 
+                  value={newItemPrice} 
+                  onChange={e => setNewItemPrice(e.target.value)} 
+                  // 修改點：加入 text-gray-900 確保文字是深黑色
+                  className="border border-gray-300 p-2 rounded w-24 text-gray-900 placeholder-gray-500 font-medium" 
+                />
                 <button onClick={handleAddSingleItem} className="bg-orange-500 text-white px-4 rounded hover:bg-orange-600">＋ 新增</button>
               </div>
 
-              {/* 3. 菜單列表 (可編輯) */}
+              {/* 列表編輯區 */}
               <table className="w-full text-left">
                 <thead className="bg-gray-100 text-gray-500 text-sm">
-                  <tr>
-                    <th className="p-2 pl-4">品項</th>
-                    <th className="p-2 w-24">價格</th>
-                    <th className="p-2 w-10"></th>
-                  </tr>
+                  <tr><th className="p-2 pl-4">品項</th><th className="p-2 w-24">價格</th><th className="p-2 w-10"></th></tr>
                 </thead>
                 <tbody className="divide-y">
                   {menuItems.map(item => (
                     <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="p-2 pl-4">{item.name}</td>
+                      <td className="p-2 pl-4 text-gray-800 font-medium">{item.name}</td>
                       <td className="p-2">
                         <input 
                           type="number" 
-                          defaultValue={item.price}
-                          onBlur={(e) => handleUpdatePrice(item.id, parseInt(e.target.value))}
-                          className="border rounded w-20 px-2 py-1 text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                          defaultValue={item.price} 
+                          onBlur={(e) => handleUpdatePrice(item.id, parseInt(e.target.value))} 
+                          // 修改點：表格內的輸入框也加深、加粗
+                          className="border border-gray-300 rounded w-20 px-2 py-1 text-center focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-bold"
                         />
                       </td>
-                      <td className="p-2 text-right">
-                        <button onClick={() => handleDeleteItem(item.id)} className="text-red-400 hover:text-red-600 px-2">×</button>
-                      </td>
+                      <td className="p-2 text-right"><button onClick={() => handleDeleteItem(item.id)} className="text-red-400 hover:text-red-600 px-2">×</button></td>
                     </tr>
                   ))}
-                  {menuItems.length === 0 && (
-                    <tr><td colSpan={3} className="p-4 text-center text-gray-400">目前沒有菜單</td></tr>
-                  )}
+                  {menuItems.length === 0 && <tr><td colSpan={3} className="p-4 text-center text-gray-400">目前沒有菜單</td></tr>}
                 </tbody>
               </table>
             </div>
-            
-            {/* Modal Footer */}
-            <div className="p-4 border-t bg-gray-50 text-right">
-              <button onClick={closeEditModal} className="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400">關閉</button>
-            </div>
+            <div className="p-4 border-t bg-gray-50 text-right"><button onClick={closeEditModal} className="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400">關閉</button></div>
           </div>
         </div>
       )}
