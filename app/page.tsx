@@ -75,17 +75,15 @@ export default function Home() {
     fetchTodayOrders();
   };
 
-  // 3. 決定吃這家 (智慧判斷)
+  // 3. 決定吃這家
   const handleSelectStore = async (storeId: number) => {
     const today = new Date().toISOString().split('T')[0];
 
-    // 先檢查今天目前為止有幾筆訂單
     const { count } = await supabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', `${today}T00:00:00`);
 
-    // 如果已經有人點餐，才跳出警告
     if (count && count > 0) {
       // eslint-disable-next-line no-restricted-globals
       const confirm = window.confirm(`⚠️ 注意：今天已經有 ${count} 人點餐了！\n換店家將會「清空」這些訂單，確定要執行嗎？`);
@@ -94,7 +92,6 @@ export default function Home() {
       await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
     }
 
-    // 設定新的店家
     await supabase.from('daily_status').delete().eq('order_date', today);
     const { error } = await supabase.from('daily_status').insert([{ 
       active_store_id: storeId,
@@ -187,12 +184,12 @@ export default function Home() {
   if (loading) return <div className="p-10 text-center text-gray-500">載入中...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    // 修改點：加入 print:bg-white 確保列印背景純白
+    <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0">
       
       {/* 畫面 A: 選擇店家列表 */}
       {!currentStore && (
         <div className="max-w-4xl mx-auto p-6">
-          {/* 修改點：加入 text-gray-900 確保標題最黑，副標題改為 text-gray-600 */}
           <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">🤷‍♂️ 今天吃什麼？</h1>
           <p className="text-gray-600 text-center mb-8 font-medium">請選擇一間餐廳開啟今日團購</p>
           
@@ -226,8 +223,8 @@ export default function Home() {
       {/* 畫面 B: 顯示菜單與訂單 */}
       {currentStore && (
         <>
-          {/* Banner */}
-          <div className="w-full h-48 bg-gray-800 relative overflow-hidden group">
+          {/* Banner - 修改點：加入 print:hidden */}
+          <div className="w-full h-48 bg-gray-800 relative overflow-hidden group print:hidden">
             {currentStore.image_url && (
               <img src={currentStore.image_url} alt={currentStore.name} className="w-full h-full object-cover opacity-60" />
             )}
@@ -244,14 +241,15 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="max-w-5xl mx-auto p-4">
-            {/* 菜單區 */}
-            <div className="flex items-center gap-2 mb-4">
+          <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
+            {/* 菜單區 - 修改點：加入 print:hidden */}
+            <div className="flex items-center gap-2 mb-4 print:hidden">
                <span className="text-2xl">🍱</span>
                <h2 className="text-xl font-bold text-gray-800">美味菜單</h2>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12">
+            {/* 菜單列表 - 修改點：加入 print:hidden */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12 print:hidden">
               {menu.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col justify-between h-full">
                   <div>
@@ -272,22 +270,33 @@ export default function Home() {
             </div>
 
             {/* 訂單統計區 */}
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 print:shadow-none print:w-full">
-              <div className="flex justify-between items-center mb-6 print:hidden">
+            {/* 修改點：
+                1. 移除 print:shadow-none (因為要讓它看起來像一張完整的紙)
+                2. print:border-none (移除邊框)
+                3. print:w-full (滿版)
+            */}
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 print:shadow-none print:border-none print:w-full print:p-0">
+              {/* 按鈕與標題區 - 修改點：標題保留，但按鈕要 print:hidden */}
+              <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">📋</span>
-                  <h2 className="text-2xl font-bold text-gray-800">統計結果</h2>
+                  <span className="text-2xl print:hidden">📋</span>
+                  {/* 列印時標題加大，並加上店名 */}
+                  <h2 className="text-2xl font-bold text-gray-800 print:text-3xl">
+                    <span className="hidden print:inline">{currentStore.name} - </span>
+                    今日訂單統計
+                  </h2>
                 </div>
+                {/* 列印按鈕 - 修改點：print:hidden */}
                 <button 
                   onClick={() => window.print()} 
-                  className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-lg shadow-gray-300/50"
+                  className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-lg shadow-gray-300/50 print:hidden"
                 >
                   🖨️ 列印訂購單
                 </button>
               </div>
 
               {orders.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300 print:hidden">
                   目前還沒有人點餐，快當第一個！
                 </div>
               ) : (
@@ -307,7 +316,7 @@ export default function Home() {
                         <tr key={row.name} className="hover:bg-blue-50/50 transition">
                           <td className="p-3 font-medium text-gray-800">{row.name}</td>
                           <td className="p-3 text-center">
-                            <span className="bg-blue-100 text-blue-800 py-1 px-2 rounded font-bold text-xs">{row.count}</span>
+                            <span className="bg-blue-100 text-blue-800 py-1 px-2 rounded font-bold text-xs print:bg-transparent print:text-black print:border print:border-gray-300">{row.count}</span>
                           </td>
                           <td className="p-3 text-right text-gray-500">${Math.round(row.total / row.count)}</td>
                           <td className="p-3 text-right font-bold text-gray-800">${row.total}</td>
@@ -316,17 +325,22 @@ export default function Home() {
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gray-900 text-white font-bold">
+                      <tr className="bg-gray-900 text-white font-bold print:bg-gray-200 print:text-black">
                         <td className="p-3">總計</td>
                         <td className="p-3 text-center">{summary.reduce((a, b) => a + b.count, 0)} 份</td>
                         <td className="p-3"></td>
-                        <td className="p-3 text-right text-xl text-yellow-400">
+                        <td className="p-3 text-right text-xl text-yellow-400 print:text-black">
                           ${summary.reduce((a, b) => a + b.total, 0)}
                         </td>
                         <td className="p-3"></td>
                       </tr>
                     </tfoot>
                   </table>
+                  
+                  {/* 列印時底部的簽名區或時間 */}
+                  <div className="hidden print:block mt-8 text-right text-sm text-gray-500">
+                    列印時間: {new Date().toLocaleString()}
+                  </div>
                 </div>
               )}
             </div>

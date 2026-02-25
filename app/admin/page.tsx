@@ -21,8 +21,8 @@ export default function AdminPage() {
   const [stores, setStores] = useState<Store[]>([]);
   // 新增店家用的狀態
   const [newStoreName, setNewStoreName] = useState('');
-  const [newStoreImage, setNewStoreImage] = useState(''); // 這裡存的是上傳後的網址
-  const [uploading, setUploading] = useState(false);     // 上傳讀取條狀態
+  const [newStoreImage, setNewStoreImage] = useState(''); 
+  const [uploading, setUploading] = useState(false);
   
   // 編輯菜單用的狀態 (Modal)
   const [editingStore, setEditingStore] = useState<Store | null>(null);
@@ -44,7 +44,6 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  // 處理圖片上傳
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -54,39 +53,42 @@ export default function AdminPage() {
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    // 1. 上傳到 Supabase Storage
+    // ★ 修正點：這裡改成你的 bucket 名稱 'stores_picture'
     const { error: uploadError } = await supabase.storage
-      .from('store-images')
+      .from('stores_picture') 
       .upload(filePath, file);
 
     if (uploadError) {
-      alert('圖片上傳失敗: ' + uploadError.message);
+      alert('圖片上傳失敗: ' + uploadError.message + '\n請確認 Supabase Storage 是否已建立 stores_picture bucket 並且設為 Public。');
       setUploading(false);
       return;
     }
 
-    // 2. 取得公開網址
-    const { data } = supabase.storage.from('store-images').getPublicUrl(filePath);
+    // ★ 修正點：這裡也要改成 'stores_picture' 才能取得正確網址
+    const { data } = supabase.storage.from('stores_picture').getPublicUrl(filePath);
     
-    // 3. 將網址存入狀態
     setNewStoreImage(data.publicUrl);
     setUploading(false);
   };
 
+  // 使用 upsert 來處理「新增或更新」
   const handleAddStore = async () => {
     if (!newStoreName.trim()) return alert('請輸入店名');
     
-    const { error } = await supabase.from('stores').insert([
-      { name: newStoreName, image_url: newStoreImage }
-    ]);
+    const { error } = await supabase
+      .from('stores')
+      .upsert([
+        { name: newStoreName, image_url: newStoreImage }
+      ], { onConflict: 'name' }) 
+      .select();
 
     if (!error) {
-      alert('✅ 店家新增成功');
+      alert('✅ 店家資訊已儲存 (若店名重複則已更新圖片)');
       setNewStoreName('');
       setNewStoreImage('');
       fetchStores();
     } else {
-      alert('❌ 新增失敗: ' + error.message);
+      alert('❌ 儲存失敗: ' + error.message + '\n(請確認是否有執行 SQL 指令設定 name 為 unique)');
     }
   };
 
@@ -189,13 +191,13 @@ export default function AdminPage() {
 
         {/* 新增店家區塊 (包含圖片上傳) */}
         <div className="bg-white p-6 rounded-xl shadow-md mb-8">
-          <h2 className="text-xl font-bold mb-4 text-gray-700">➕ 新增店家</h2>
+          <h2 className="text-xl font-bold mb-4 text-gray-700">➕ 新增 / 更新店家</h2>
+          <p className="text-sm text-gray-500 mb-4">💡 提示：如果輸入相同的店名，將會更新該店家的圖片。</p>
           <div className="flex flex-col md:flex-row gap-4 items-start">
             <input 
               placeholder="店名 (例如: 悟饕池上便當)" 
               value={newStoreName}
               onChange={e => setNewStoreName(e.target.value)}
-              // 修改點：加入 text-gray-900 確保文字是深黑色
               className="border border-gray-300 p-2 rounded h-10 flex-1 w-full text-gray-900 placeholder-gray-500 font-medium" 
             />
             
@@ -219,7 +221,7 @@ export default function AdminPage() {
               disabled={uploading}
               className={`px-6 h-10 rounded text-white font-bold transition ${uploading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
-              {uploading ? '處理中' : '新增'}
+              {uploading ? '處理中' : '儲存'}
             </button>
           </div>
           
@@ -287,7 +289,6 @@ export default function AdminPage() {
                   placeholder="品項名稱" 
                   value={newItemName} 
                   onChange={e => setNewItemName(e.target.value)} 
-                  // 修改點：加入 text-gray-900 確保文字是深黑色
                   className="border border-gray-300 p-2 rounded flex-1 text-gray-900 placeholder-gray-500 font-medium" 
                 />
                 <input 
@@ -295,7 +296,6 @@ export default function AdminPage() {
                   placeholder="價格" 
                   value={newItemPrice} 
                   onChange={e => setNewItemPrice(e.target.value)} 
-                  // 修改點：加入 text-gray-900 確保文字是深黑色
                   className="border border-gray-300 p-2 rounded w-24 text-gray-900 placeholder-gray-500 font-medium" 
                 />
                 <button onClick={handleAddSingleItem} className="bg-orange-500 text-white px-4 rounded hover:bg-orange-600">＋ 新增</button>
@@ -315,7 +315,6 @@ export default function AdminPage() {
                           type="number" 
                           defaultValue={item.price} 
                           onBlur={(e) => handleUpdatePrice(item.id, parseInt(e.target.value))} 
-                          // 修改點：表格內的輸入框也加深、加粗
                           className="border border-gray-300 rounded w-20 px-2 py-1 text-center focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 font-bold"
                         />
                       </td>
