@@ -38,12 +38,8 @@ export default function Home() {
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 控制是否顯示大圖的狀態
+  // ★ 新增：控制是否顯示大圖的狀態
   const [showLargeImage, setShowLargeImage] = useState(false);
-
-  // ★ 新增：自訂品項的狀態
-  const [customItemName, setCustomItemName] = useState('');
-  const [customItemPrice, setCustomItemPrice] = useState('');
 
   useEffect(() => {
     checkDailyStatus();
@@ -85,6 +81,7 @@ export default function Home() {
   // 3. 決定吃這家
   const handleSelectStore = async (storeId: number) => {
     const today = new Date().toISOString().split('T')[0];
+
     const { count } = await supabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
@@ -94,6 +91,7 @@ export default function Home() {
       // eslint-disable-next-line no-restricted-globals
       const confirm = window.confirm(`⚠️ 注意：今天已經有 ${count} 人點餐了！\n換店家將會「清空」這些訂單，確定要執行嗎？`);
       if (!confirm) return;
+
       await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
     }
 
@@ -113,6 +111,7 @@ export default function Home() {
   // 4. 重設店家
   const handleResetStore = async () => {
     const today = new Date().toISOString().split('T')[0];
+
     const { count } = await supabase
       .from('orders')
       .select('*', { count: 'exact', head: true })
@@ -122,14 +121,17 @@ export default function Home() {
       // eslint-disable-next-line no-restricted-globals
       const confirm = window.confirm('確定要換一家吃嗎？\n⚠️ 這會「清空」大家已經點的餐喔！');
       if (!confirm) return;
+      
       await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
     }
 
     await supabase.from('daily_status').delete().eq('order_date', today);
+
     setCurrentStore(null);
     setMenu([]);
     setOrders([]);
     setSummary([]);
+
     const { data: stores } = await supabase.from('stores').select('*');
     if (stores) setStoreList(stores);
   };
@@ -164,31 +166,28 @@ export default function Home() {
   };
 
   // 7. 點餐
-  const handleOrder = async (itemName: string, itemPrice: number) => {
-    const name = prompt(`你要訂購 ${itemName}，請輸入你的名字：`);
+  const handleOrder = async (item: Product) => {
+    const name = prompt(`你要訂購 ${item.name}，請輸入你的名字：`);
     if (!name) return;
 
     const { error } = await supabase.from('orders').insert([{ 
-      item_name: itemName, 
-      price: itemPrice, 
+      item_name: item.name, 
+      price: item.price, 
       customer_name: name 
     }]);
 
     if (!error) {
       alert('點餐成功！');
       fetchTodayOrders();
-      // 清空自訂欄位
-      setCustomItemName('');
-      setCustomItemPrice('');
     } else {
       alert('失敗：' + error.message);
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-gray-500 font-medium">載入中...</div>;
+  if (loading) return <div className="p-10 text-center text-gray-500">載入中...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0 relative">
+    <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0">
       
       {/* 畫面 A: 選擇店家列表 */}
       {!currentStore && (
@@ -226,10 +225,10 @@ export default function Home() {
       {/* 畫面 B: 顯示菜單與訂單 */}
       {currentStore && (
         <>
-          {/* Banner 區域 */}
+          {/* Banner 區域 - 加入 cursor-zoom-in 提示可以點 */}
           <div 
             className="w-full h-48 bg-gray-800 relative overflow-hidden group print:hidden cursor-zoom-in"
-            onClick={() => setShowLargeImage(true)}
+            onClick={() => setShowLargeImage(true)} // ★ 點擊時開啟大圖
             title="點擊查看大圖"
           >
             {currentStore.image_url && (
@@ -239,19 +238,18 @@ export default function Home() {
               <h1 className="text-white text-4xl font-bold shadow-black drop-shadow-lg">{currentStore.name}</h1>
               <p className="text-gray-200 mt-2 text-sm bg-black/30 px-3 py-1 rounded">今日午餐訂購中</p>
             </div>
-          </div>
 
-          {/* ★ 修正後的「換一家吃」按鈕：改為右下角懸浮按鈕，更加醒目 */}
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              handleResetStore();
-            }}
-            className="fixed bottom-6 right-6 z-40 bg-orange-600 text-white p-4 rounded-full shadow-2xl hover:bg-orange-700 transition-all hover:scale-110 group print:hidden flex items-center gap-2"
-          >
-            <span className="text-xl">🔄</span>
-            <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 font-bold whitespace-nowrap">換一家吃</span>
-          </button>
+            {/* 按鈕必須加上 stopPropagation，避免點按鈕時誤觸發大圖 */}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation(); // 防止點到按鈕時也跳出圖片
+                handleResetStore();
+              }}
+              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white text-xs px-3 py-1 rounded backdrop-blur-sm border border-white/30 pointer-events-auto"
+            >
+              🔄 換一家吃
+            </button>
+          </div>
 
           <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
             {/* 菜單區 */}
@@ -260,7 +258,7 @@ export default function Home() {
                <h2 className="text-xl font-bold text-gray-800">美味菜單</h2>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-12 print:hidden">
               {menu.map((item) => (
                 <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col justify-between h-full">
                   <div>
@@ -270,7 +268,7 @@ export default function Home() {
                   <div className="flex justify-between items-center mt-4 pt-3 border-t border-gray-50">
                     <span className="text-orange-600 font-bold text-xl">${item.price}</span>
                     <button 
-                      onClick={() => handleOrder(item.name, item.price)}
+                      onClick={() => handleOrder(item)}
                       className="bg-orange-50 text-orange-600 border border-orange-200 px-4 py-1.5 rounded-lg hover:bg-orange-500 hover:text-white transition font-medium text-sm"
                     >
                       + 點餐
@@ -280,49 +278,13 @@ export default function Home() {
               ))}
             </div>
 
-            {/* ★ 新增：客製化品項輸入框 */}
-            <div className="mb-12 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">✏️</span>
-                <h3 className="font-bold text-gray-700">想吃點不一樣的？或有特殊需求？</h3>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input 
-                  type="text" 
-                  placeholder="輸入需求 (例：排骨飯-不加菜 / 加一顆蛋)" 
-                  value={customItemName}
-                  onChange={(e) => setCustomItemName(e.target.value)}
-                  className="flex-1 border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div className="flex gap-3">
-                  <input 
-                    type="number" 
-                    placeholder="金額" 
-                    value={customItemPrice}
-                    onChange={(e) => setCustomItemPrice(e.target.value)}
-                    className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button 
-                    onClick={() => {
-                      if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額');
-                      handleOrder(customItemName, parseInt(customItemPrice));
-                    }}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition"
-                  >
-                    下單
-                  </button>
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">* 自訂需求將會自動加入下方的統計清單中</p>
-            </div>
-
             {/* 訂單統計區 */}
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 print:shadow-none print:border-none print:w-full print:p-0">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl print:hidden">📋</span>
                   <h2 className="text-2xl font-bold text-gray-800 print:text-3xl">
-                    <span className="hidden print:inline">{currentStore?.name} - </span>
+                    <span className="hidden print:inline">{currentStore.name} - </span>
                     今日訂單統計
                   </h2>
                 </div>
@@ -384,8 +346,8 @@ export default function Home() {
             </div>
           </div>
           
-          {/* 全螢幕大圖燈箱 */}
-          {showLargeImage && currentStore?.image_url && (
+          {/* ★ 新增：全螢幕大圖燈箱 (Lightbox) */}
+          {showLargeImage && currentStore.image_url && (
             <div 
               className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn"
               onClick={() => setShowLargeImage(false)}
@@ -398,6 +360,7 @@ export default function Home() {
               <button className="absolute top-6 right-6 text-white text-4xl opacity-70 hover:opacity-100 transition">
                 &times;
               </button>
+              <p className="absolute bottom-6 text-white/50 text-sm">點擊任意處關閉</p>
             </div>
           )}
         </>
