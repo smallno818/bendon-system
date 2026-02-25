@@ -70,25 +70,42 @@ export default function AdminPage() {
     setUploading(false);
   };
 
-  const handleAddStore = async () => {
-    if (!newStoreName.trim()) return alert('請輸入店名');
-    
-    const { error } = await supabase
-      .from('stores')
-      .upsert([
-        { name: newStoreName, image_url: newStoreImage }
-      ], { onConflict: 'name' }) 
-      .select();
+  // 在原本的 handleAddStore 附近修改
+const [newStorePhone, setNewStorePhone] = useState(''); // 新增狀態
 
-    if (!error) {
-      alert('✅ 店家資訊已儲存');
-      setNewStoreName('');
-      setNewStoreImage('');
-      fetchStores();
-    } else {
-      alert('❌ 儲存失敗: ' + error.message);
-    }
-  };
+// 修改 handleAddStore 函數
+const handleAddStore = async () => {
+  if (!newStoreName.trim()) return alert('請輸入店名');
+  
+  const { error } = await supabase
+    .from('stores')
+    .upsert([
+      { 
+        name: newStoreName, 
+        image_url: newStoreImage,
+        phone: newStorePhone // 儲存電話
+      }
+    ], { onConflict: 'name' }) 
+    .select();
+
+  if (!error) {
+    alert('✅ 店家資訊已儲存');
+    setNewStoreName('');
+    setNewStoreImage('');
+    setNewStorePhone(''); // 清空
+    fetchStores();
+  } else {
+    alert('❌ 儲存失敗: ' + error.message);
+  }
+};
+
+// UI 部分在輸入店名的旁邊加入：
+<input 
+  placeholder="店家電話 (選填)" 
+  value={newStorePhone}
+  onChange={e => setNewStorePhone(e.target.value)}
+  className="border border-gray-300 p-2 rounded h-10 flex-1 w-full text-gray-900 placeholder-gray-500 font-medium" 
+/>
 
   // ★ 修正 2：增加 imageUrl 參數，用來刪除雲端圖片
   const handleDeleteStore = async (id: number, name: string, imageUrl: string | null) => {

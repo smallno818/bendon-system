@@ -7,6 +7,7 @@ type Store = {
   id: number;
   name: string;
   image_url: string | null;
+  phone: string | null; // ★ 新增電話欄位
 };
 
 type Product = {
@@ -38,10 +39,7 @@ export default function Home() {
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 控制是否顯示大圖的狀態
   const [showLargeImage, setShowLargeImage] = useState(false);
-
-  // 自訂品項的狀態
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
 
@@ -49,11 +47,9 @@ export default function Home() {
     checkDailyStatus();
   }, []);
 
-  // 1. 檢查今天是否已經選好店家
   const checkDailyStatus = async () => {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
-
     const { data: statusData } = await supabase
       .from('daily_status')
       .select('active_store_id, order_date')
@@ -71,18 +67,14 @@ export default function Home() {
     setLoading(false);
   };
 
-  // 2. 載入特定店家的菜單與訂單
   const loadStoreData = async (storeId: number) => {
     const { data: store } = await supabase.from('stores').select('*').eq('id', storeId).single();
     setCurrentStore(store);
-
     const { data: menuData } = await supabase.from('products').select('*').eq('store_id', storeId);
     if (menuData) setMenu(menuData);
-
     fetchTodayOrders();
   };
 
-  // 3. 決定吃這家
   const handleSelectStore = async (storeId: number) => {
     const today = new Date().toISOString().split('T')[0];
     const { count } = await supabase
@@ -110,7 +102,6 @@ export default function Home() {
     }
   };
 
-  // 4. 重設店家
   const handleResetStore = async () => {
     const today = new Date().toISOString().split('T')[0];
     const { count } = await supabase
@@ -134,7 +125,6 @@ export default function Home() {
     if (stores) setStoreList(stores);
   };
 
-  // 5. 抓取今日訂單
   const fetchTodayOrders = async () => {
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
@@ -149,7 +139,6 @@ export default function Home() {
     }
   };
 
-  // 6. 計算統計
   const calculateSummary = (ordersData: Order[]) => {
     const stats: Record<string, SummaryItem> = {};
     ordersData.forEach(order => {
@@ -163,7 +152,6 @@ export default function Home() {
     setSummary(Object.values(stats));
   };
 
-  // 7. 點餐
   const handleOrder = async (itemName: string, itemPrice: number) => {
     const name = prompt(`你要訂購 ${itemName}，請輸入你的名字：`);
     if (!name) return;
@@ -210,7 +198,8 @@ export default function Home() {
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition"></div>
                 </div>
                 <div className="p-5 text-center">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">{store.name}</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-1">{store.name}</h3>
+                  {store.phone && <p className="text-xs text-gray-500 mb-3">📞 {store.phone}</p>}
                   <button className="bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-blue-700">
                     決定吃這家！
                   </button>
@@ -233,11 +222,19 @@ export default function Home() {
             )}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
               <h1 className="text-white text-4xl font-bold shadow-black drop-shadow-lg">{currentStore.name}</h1>
-              <p className="text-gray-200 mt-2 text-sm bg-black/30 px-3 py-1 rounded">今日午餐訂購中</p>
+              {/* ★ 新增：電話顯示，點擊可撥打 */}
+              {currentStore.phone && (
+                <a 
+                  href={`tel:${currentStore.phone}`}
+                  onClick={(e) => e.stopPropagation()} // 避免觸發大圖
+                  className="mt-3 text-white bg-green-600/80 hover:bg-green-600 px-4 py-1.5 rounded-full text-sm font-bold backdrop-blur-sm pointer-events-auto flex items-center gap-2"
+                >
+                  📞 點我撥打：{currentStore.phone}
+                </a>
+              )}
             </div>
           </div>
 
-          {/* ★ 修改後的「換一家吃」按鈕：直接顯示文字，更醒目 */}
           <button 
             onClick={(e) => {
               e.stopPropagation();
