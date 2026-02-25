@@ -19,7 +19,7 @@ type Product = {
 };
 
 type Order = {
-  id: number; // ★ 新增 id 欄位，刪除時需要用到
+  id: number;
   item_name: string;
   price: number;
   customer_name: string;
@@ -29,7 +29,6 @@ type SummaryItem = {
   name: string;
   count: number;
   total: number;
-  // ★ 修改：為了能單獨刪除，這裡改存訂單物件的陣列
   orderDetails: { id: number; customer_name: string }[];
 };
 
@@ -46,11 +45,45 @@ export default function Home() {
   const [customItemPrice, setCustomItemPrice] = useState('');
 
   useEffect(() => {
+    // 1. 執行初始檢查
     checkDailyStatus();
+
+    // ★ 2. 啟動 Real-time 監聽
+    // 監聽 orders 表格的所有變動 (INSERT, UPDATE, DELETE)
+    const ordersChannel = supabase
+      .channel('custom-all-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', table: 'orders' },
+        () => {
+          console.log('偵測到訂單變動，更新統計中...');
+          fetchTodayOrders();
+        }
+      )
+      .subscribe();
+
+    // 監聽 daily_status 表格變動 (換店家時即時同步)
+    const statusChannel = supabase
+      .channel('status-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', table: 'daily_status' },
+        () => {
+          console.log('偵測到店家狀態變動，同步畫面中...');
+          checkDailyStatus();
+        }
+      )
+      .subscribe();
+
+    // 組件卸載時取消訂閱
+    return () => {
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(statusChannel);
+    };
   }, []);
 
   const checkDailyStatus = async () => {
-    setLoading(true);
+    // 這裡不設定 loading，避免即時更新時畫面閃爍
     const today = new Date().toISOString().split('T')[0];
     const { data: statusData } = await supabase
       .from('daily_status')
@@ -58,11 +91,12 @@ export default function Home() {
       .eq('order_date', today)
       .order('id', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle(); // 使用 maybeSingle 避免報錯
     
     if (statusData?.active_store_id) {
       await loadStoreData(statusData.active_store_id);
     } else {
+      setCurrentStore(null);
       const { data: stores } = await supabase.from('stores').select('*');
       if (stores) setStoreList(stores);
     }
@@ -98,9 +132,7 @@ export default function Home() {
     }]);
 
     if (!error) {
-      loadStoreData(storeId);
-      setOrders([]); 
-      setSummary([]);
+      checkDailyStatus();
     }
   };
 
@@ -119,12 +151,7 @@ export default function Home() {
     }
 
     await supabase.from('daily_status').delete().eq('order_date', today);
-    setCurrentStore(null);
-    setMenu([]);
-    setOrders([]);
-    setSummary([]);
-    const { data: stores } = await supabase.from('stores').select('*');
-    if (stores) setStoreList(stores);
+    checkDailyStatus();
   };
 
   const fetchTodayOrders = async () => {
@@ -165,8 +192,6 @@ export default function Home() {
     }]);
 
     if (!error) {
-      alert('點餐成功！');
-      fetchTodayOrders();
       setCustomItemName('');
       setCustomItemPrice('');
     } else {
@@ -174,18 +199,12 @@ export default function Home() {
     }
   };
 
-  // ★ 新增：刪除單筆餐點功能
   const handleDeleteOrder = async (orderId: number, customerName: string) => {
     const confirmName = prompt(`確定要刪除 ${customerName} 的這份餐點嗎？\n請輸入你的名字「${customerName}」進行確認：`);
     
     if (confirmName === customerName) {
       const { error } = await supabase.from('orders').delete().eq('id', orderId);
-      if (!error) {
-        alert('餐點已成功刪除！');
-        fetchTodayOrders();
-      } else {
-        alert('刪除失敗：' + error.message);
-      }
+      if (error) alert('刪除失敗：' + error.message);
     } else if (confirmName !== null) {
       alert('名字輸入不正確，刪除失敗。');
     }
@@ -260,8 +279,7 @@ export default function Home() {
             }}
             className="fixed bottom-8 right-8 z-40 bg-orange-600 text-white px-6 py-4 rounded-2xl shadow-2xl hover:bg-orange-700 transition-all hover:scale-105 active:scale-95 print:hidden flex items-center gap-2 border-2 border-white/20"
           >
-            <span className="text-xl">🔄</span>
-            <span className="font-bold text-lg tracking-wider">換一家</span>
+            <span className="text-xl font-bold">🔄 換一家</span>
           </button>
 
           <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
@@ -292,13 +310,12 @@ export default function Home() {
 
             <div className="mb-12 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl">✏️</span>
-                <h3 className="font-bold text-gray-700">想吃點不一樣的？或有特殊需求？</h3>
+                <span className="text-xl font-bold text-gray-700">✏️ 客製化品項 / 特殊需求</span>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input 
                   type="text" 
-                  placeholder="輸入需求 (例：排骨飯-不加菜 / 加一顆蛋)" 
+                  placeholder="輸入需求 (例：雞腿飯-不要蔥)" 
                   value={customItemName}
                   onChange={(e) => setCustomItemName(e.target.value)}
                   className="flex-1 border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500"
@@ -322,7 +339,6 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-gray-400 mt-2">* 自訂需求將會自動加入下方的統計清單中</p>
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 print:shadow-none print:border-none print:w-full print:p-0">
@@ -368,7 +384,6 @@ export default function Home() {
                           <td className="p-3 text-right text-gray-500">${Math.round(row.total / row.count)}</td>
                           <td className="p-3 text-right font-bold text-gray-800">${row.total}</td>
                           <td className="p-3 text-sm text-gray-500">
-                            {/* ★ 修正：顯示名字與刪除按鈕 */}
                             <div className="flex flex-wrap gap-2">
                               {row.orderDetails.map((detail) => (
                                 <span key={detail.id} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-200">
@@ -376,7 +391,6 @@ export default function Home() {
                                   <button 
                                     onClick={() => handleDeleteOrder(detail.id, detail.customer_name)}
                                     className="text-red-400 hover:text-red-600 font-bold ml-1 print:hidden"
-                                    title="刪除此份餐點"
                                   >
                                     ×
                                   </button>
