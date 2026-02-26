@@ -1,19 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 type Store = { id: number; name: string; };
 
 type Props = {
   stores: Store[];
-  initialStoreId?: number | null; // ★ 新增：接收預設店家 ID
+  initialStoreId?: number | null;
   onClose: () => void;
   onSubmit: (storeId: number, endTime: string, groupName: string) => void;
 };
 
 export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: Props) {
-  // ★ 如果有傳入 initialStoreId，就直接設定為預設值
-  const [selectedStoreId, setSelectedStoreId] = useState<number | ''>(initialStoreId || '');
+  const [selectedStoreId, setSelectedStoreId] = useState<number | ''>('');
   const [endTime, setEndTime] = useState('');
   const [groupName, setGroupName] = useState('');
+
+  // 初始化：如果有傳入 initialStoreId，就直接設定
+  useEffect(() => {
+    if (initialStoreId) {
+      setSelectedStoreId(initialStoreId);
+    }
+  }, [initialStoreId]);
 
   const handleSubmit = () => {
     if (!selectedStoreId) return alert('請選擇店家！');
@@ -26,33 +32,47 @@ export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: P
     onSubmit(Number(selectedStoreId), endTime, groupName);
   };
 
+  // 取得目前選中店家的名字
+  const selectedStoreName = stores.find(s => s.id === Number(selectedStoreId))?.name;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scaleIn">
         
         <div className="bg-indigo-600 p-6 text-white text-center">
-          <h2 className="text-2xl font-bold">🎉 發起新團購</h2>
-          <p className="text-indigo-200 text-sm mt-1">想吃什麼自己開！</p>
+          <h2 className="text-2xl font-bold">⏱️ 設定團購資訊</h2>
+          <p className="text-indigo-200 text-sm mt-1">
+            {initialStoreId ? '只差一步就完成了！' : '想吃什麼自己開！'}
+          </p>
         </div>
 
         <div className="p-6 space-y-5">
           
+          {/* 1. 選擇店家 (如果已經有預選，就變成純文字顯示，不能改) */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">1. 選擇店家</label>
-            <select 
-              value={selectedStoreId} 
-              onChange={(e) => setSelectedStoreId(Number(e.target.value))}
-              className="w-full p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
-            >
-              <option value="">-- 請選擇 --</option>
-              {stores.map(store => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-            </select>
+            <label className="block text-sm font-bold text-gray-700 mb-2">1. 團購店家</label>
+            {initialStoreId ? (
+              <div className="w-full p-3 border border-indigo-200 rounded-xl bg-indigo-50 text-indigo-900 font-bold text-lg flex items-center gap-2">
+                <span>🍱</span>
+                {selectedStoreName}
+              </div>
+            ) : (
+              <select 
+                value={selectedStoreId} 
+                onChange={(e) => setSelectedStoreId(Number(e.target.value))}
+                className="w-full p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
+              >
+                <option value="">-- 請選擇 --</option>
+                {stores.map(store => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
+          {/* 2. 結單時間 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">2. 結單時間</label>
             <input 
@@ -63,6 +83,7 @@ export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: P
             />
           </div>
 
+          {/* 3. 團購名稱 (選填) */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">3. 團購名稱 (選填)</label>
             <input 

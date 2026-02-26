@@ -29,10 +29,13 @@ export default function Home() {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
   const [showLargeImage, setShowLargeImage] = useState(false);
+  
+  // ★ 控制「時間設定視窗」
   const [showStartGroupModal, setShowStartGroupModal] = useState(false); 
-  const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
+  // ★ 控制「全螢幕店家選擇牆」 (點 + 號時顯示)
+  const [showStoreSelector, setShowStoreSelector] = useState(false);
 
-  // ★ 加回：全域的結單時間輸入 (快速開團用)
+  const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
   const [inputEndDateTime, setInputEndDateTime] = useState('');
 
   const [customItemName, setCustomItemName] = useState('');
@@ -212,8 +215,8 @@ export default function Home() {
     if (!error) {
       alert('✅ 開團成功！');
       setShowStartGroupModal(false);
+      setShowStoreSelector(false); // ★ 關閉店家選擇牆
       setPreSelectedStoreId(null);
-      // 清空快速開團的時間，避免下次誤用
       setInputEndDateTime('');
       fetchTodayGroups();
     } else {
@@ -240,20 +243,18 @@ export default function Home() {
     setLoading(false);
   };
 
-  // ★ 修正：點擊卡片的邏輯
+  // ★ 處理點擊卡片：無論是首頁還是 Overlay，行為一致
   const handleCardClick = (storeId: number) => {
-    // 1. 如果有設定「快速開團時間」，直接開團！
     if (inputEndDateTime) {
+      // 1. 有設定快速時間 -> 直接開團
       if (new Date(inputEndDateTime).getTime() <= new Date().getTime()) {
         return alert('❌ 設定的結單時間已經過了，請選擇未來的時間！');
       }
       const storeName = storeList.find(s => s.id === storeId)?.name;
       if (!window.confirm(`確定要直接發起「${storeName}」的團購嗎？\n結單時間：${new Date(inputEndDateTime).toLocaleString()}`)) return;
-      
-      handleCreateGroup(storeId, inputEndDateTime, ''); // 名稱留空
-    } 
-    // 2. 如果沒設定時間，跳出 Modal 讓使用者慢慢選
-    else {
+      handleCreateGroup(storeId, inputEndDateTime, ''); 
+    } else {
+      // 2. 沒設定時間 -> 打開設定視窗 (Modal)
       setPreSelectedStoreId(storeId);
       setShowStartGroupModal(true);
     }
@@ -266,26 +267,77 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
       
+      {/* ★ StartGroupModal (時間設定視窗) 
+         (這個視窗的層級最高 z-60)
+      */}
       {showStartGroupModal && (
         <StartGroupModal 
           stores={storeList} 
           initialStoreId={preSelectedStoreId}
           onClose={() => {
             setShowStartGroupModal(false);
-            setPreSelectedStoreId(null);
+            // 注意：不清除 preSelectedStoreId，以免使用者只是按錯時間想重選，保持流程順暢
           }} 
           onSubmit={handleCreateGroup} 
         />
       )}
 
+      {/* ★ StoreSelector Overlay (全螢幕店家選擇牆)
+         (當點擊 Tabs 的 + 號時顯示，z-50)
+      */}
+      {showStoreSelector && (
+        <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto animate-fadeIn">
+          <div className="max-w-6xl mx-auto p-6 min-h-screen">
+            <div className="flex justify-between items-center mb-8 sticky top-0 bg-gray-50/95 backdrop-blur py-4 z-10 border-b border-gray-200">
+              <h2 className="text-3xl font-black text-gray-800">🎉 加開新團購</h2>
+              <button 
+                onClick={() => setShowStoreSelector(false)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-600 px-5 py-2 rounded-xl font-bold transition"
+              >
+                取消
+              </button>
+            </div>
+
+            {/* 在這裡也放一個快速時間設定，方便連開 */}
+            <div className="flex justify-center mb-10">
+              <div className="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-2 w-full max-w-md">
+                <label className="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                  <span>⏱️</span>
+                  <span>快速設定結單時間 (選填)</span>
+                </label>
+                <input 
+                  type="datetime-local" 
+                  value={inputEndDateTime} 
+                  onChange={e => setInputEndDateTime(e.target.value)} 
+                  className="w-full border-2 border-indigo-100 p-2 rounded-lg font-bold text-gray-700 outline-none focus:border-indigo-500 bg-gray-50" 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+              {storeList.map(store => (
+                <StoreCard 
+                  key={store.id} 
+                  name={store.name} 
+                  imageUrl={store.image_url} 
+                  phone={store.phone} 
+                  onSelect={() => handleCardClick(store.id)} 
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
       {todayGroups.length === 0 ? (
+        // --- 狀況一：完全沒團 (首頁就是店家牆) ---
         <div className="max-w-6xl mx-auto p-6">
           <div className="text-center py-6">
             <h1 className="text-4xl font-black text-gray-800 mb-2">🍽️ 今天吃什麼？</h1>
             <p className="text-gray-500 text-lg">發起今天的第一個團購吧！</p>
           </div>
 
-          {/* ★ 加回：快速開團設定區塊 */}
           <div className="flex justify-center mb-10">
             <div className="bg-blue-50 p-5 rounded-2xl border border-blue-200 shadow-sm flex flex-col items-center gap-3 animate-fadeIn">
               <label className="text-base font-bold text-blue-800 flex items-center gap-2">
@@ -298,7 +350,7 @@ export default function Home() {
                 onChange={e => setInputEndDateTime(e.target.value)} 
                 className="border-2 border-blue-300 p-2 rounded-lg text-xl font-bold text-gray-700 outline-none focus:border-blue-500 bg-white shadow-inner" 
               />
-              <p className="text-xs text-blue-500 font-medium">✨ 設定後，點擊下方卡片即可直接開團（不用再確認）</p>
+              <p className="text-xs text-blue-500 font-medium">✨ 設定後，點擊下方卡片即可直接開團</p>
             </div>
           </div>
           
@@ -315,8 +367,9 @@ export default function Home() {
           </div>
         </div>
       ) : (
+        // --- 狀況二：已經有團 (顯示 Tabs 介面) ---
         <>
-          <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
+          <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
             <div className="max-w-5xl mx-auto px-4 flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide">
               {todayGroups.map(group => (
                 <button
@@ -337,10 +390,11 @@ export default function Home() {
                 </button>
               ))}
 
+              {/* ★ 修改：點擊 + 號開啟全螢幕店家選擇牆 */}
               <button
-                onClick={() => setShowStartGroupModal(true)}
+                onClick={() => setShowStoreSelector(true)}
                 className="ml-2 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all font-bold text-xl"
-                title="再開一團"
+                title="加開新團購"
               >
                 ＋
               </button>
@@ -359,13 +413,13 @@ export default function Home() {
                 onShowLargeImage={() => setShowLargeImage(true)} 
               />
 
-              <button onClick={scrollToTop} className={`fixed bottom-8 right-8 z-40 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`} title="回到頂部">
+              <button onClick={scrollToTop} className={`fixed bottom-8 right-8 z-30 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`} title="回到頂部">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
               </button>
 
               <button 
                 onClick={handleCloseCurrentGroup} 
-                className="fixed bottom-28 right-8 z-40 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1"
+                className="fixed bottom-28 right-8 z-30 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1"
                 title="刪除目前顯示的團購"
               >
                 <span className="text-xl">❌</span>
@@ -409,7 +463,7 @@ export default function Home() {
               </div>
 
               {showLargeImage && activeGroupData.store.image_url && (
-                <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn" onClick={() => setShowLargeImage(false)}>
+                <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn" onClick={() => setShowLargeImage(false)}>
                   <img src={activeGroupData.store.image_url} alt={activeGroupData.store.name} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
                   <button className="absolute top-6 right-6 text-white text-4xl opacity-70 hover:opacity-100 transition">&times;</button>
                 </div>
