@@ -1,4 +1,3 @@
-// src/hooks/useGroupOrders.ts
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Store, Product, Order, SummaryItem, Group } from '@/types';
@@ -126,14 +125,17 @@ export function useGroupOrders() {
     fetchStores();
     fetchTodayGroups();
     
+    // 監聽群組 (開團/刪除團)
     const groupChannel = supabase.channel('realtime_groups')
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => {
         fetchTodayGroups();
       })
       .subscribe();
 
+    // 監聽訂單 (別人下單時更新)
     const ordersChannel = supabase.channel('realtime_orders')
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => {
+        // ★ 只有當目前有選中群組時，才更新訂單
         if (activeGroupId) fetchOrders(activeGroupId);
       })
       .subscribe();
@@ -158,13 +160,21 @@ export function useGroupOrders() {
     }]);
 
     if (error) throw error;
+    
+    // ★ 修正重點：成功後，立刻手動重抓一次訂單，確保 UI 秒更新
+    await fetchOrders(activeGroupId);
   };
 
   // --- 使用者動作：刪除訂單 ---
   const deleteOrder = async (orderId: number) => {
     if (isExpired) throw new Error('已結單，無法刪除');
+    if (!activeGroupId) return;
+
     const { error } = await supabase.from('orders').delete().eq('id', orderId);
     if (error) throw error;
+
+    // ★ 修正重點：成功後，立刻手動重抓一次訂單
+    await fetchOrders(activeGroupId);
   };
 
   // --- 使用者動作：建立開團 ---
@@ -180,16 +190,13 @@ export function useGroupOrders() {
     }]);
 
     if (error) throw error;
-    // 成功後 fetchTodayGroups 會被 real-time 或手動觸發
     await fetchTodayGroups(); 
   };
 
   // --- 使用者動作：關閉開團 ---
   const closeGroup = async () => {
     if (!activeGroupId) return;
-    // 1. 刪除訂單
     await supabase.from('orders').delete().eq('group_id', activeGroupId);
-    // 2. 刪除群組
     const { error } = await supabase.from('daily_groups').delete().eq('id', activeGroupId);
     
     if (error) throw error;
@@ -197,7 +204,6 @@ export function useGroupOrders() {
   };
 
   return {
-    // 資料
     todayGroups,
     activeGroupId,
     activeGroup: todayGroups.find(g => g.id === activeGroupId),
@@ -208,7 +214,6 @@ export function useGroupOrders() {
     loading,
     timeLeft,
     isExpired,
-    // 動作
     switchGroup,
     createOrder,
     deleteOrder,
