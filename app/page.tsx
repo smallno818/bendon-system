@@ -30,9 +30,7 @@ export default function Home() {
   const [isExpired, setIsExpired] = useState(false);
   const [showLargeImage, setShowLargeImage] = useState(false);
   
-  // ★ 控制「時間設定視窗」
   const [showStartGroupModal, setShowStartGroupModal] = useState(false); 
-  // ★ 控制「全螢幕店家選擇牆」 (點 + 號時顯示)
   const [showStoreSelector, setShowStoreSelector] = useState(false);
 
   const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
@@ -215,7 +213,7 @@ export default function Home() {
     if (!error) {
       alert('✅ 開團成功！');
       setShowStartGroupModal(false);
-      setShowStoreSelector(false); // ★ 關閉店家選擇牆
+      setShowStoreSelector(false);
       setPreSelectedStoreId(null);
       setInputEndDateTime('');
       fetchTodayGroups();
@@ -243,10 +241,8 @@ export default function Home() {
     setLoading(false);
   };
 
-  // ★ 處理點擊卡片：無論是首頁還是 Overlay，行為一致
   const handleCardClick = (storeId: number) => {
     if (inputEndDateTime) {
-      // 1. 有設定快速時間 -> 直接開團
       if (new Date(inputEndDateTime).getTime() <= new Date().getTime()) {
         return alert('❌ 設定的結單時間已經過了，請選擇未來的時間！');
       }
@@ -254,7 +250,6 @@ export default function Home() {
       if (!window.confirm(`確定要直接發起「${storeName}」的團購嗎？\n結單時間：${new Date(inputEndDateTime).toLocaleString()}`)) return;
       handleCreateGroup(storeId, inputEndDateTime, ''); 
     } else {
-      // 2. 沒設定時間 -> 打開設定視窗 (Modal)
       setPreSelectedStoreId(storeId);
       setShowStartGroupModal(true);
     }
@@ -267,24 +262,18 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
       
-      {/* ★ StartGroupModal (時間設定視窗) 
-         (這個視窗的層級最高 z-60)
-      */}
       {showStartGroupModal && (
         <StartGroupModal 
           stores={storeList} 
           initialStoreId={preSelectedStoreId}
           onClose={() => {
             setShowStartGroupModal(false);
-            // 注意：不清除 preSelectedStoreId，以免使用者只是按錯時間想重選，保持流程順暢
+            setPreSelectedStoreId(null);
           }} 
           onSubmit={handleCreateGroup} 
         />
       )}
 
-      {/* ★ StoreSelector Overlay (全螢幕店家選擇牆)
-         (當點擊 Tabs 的 + 號時顯示，z-50)
-      */}
       {showStoreSelector && (
         <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto animate-fadeIn">
           <div className="max-w-6xl mx-auto p-6 min-h-screen">
@@ -298,7 +287,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* 在這裡也放一個快速時間設定，方便連開 */}
             <div className="flex justify-center mb-10">
               <div className="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-2 w-full max-w-md">
                 <label className="text-sm font-bold text-indigo-800 flex items-center gap-2">
@@ -329,9 +317,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Main Content */}
       {todayGroups.length === 0 ? (
-        // --- 狀況一：完全沒團 (首頁就是店家牆) ---
         <div className="max-w-6xl mx-auto p-6">
           <div className="text-center py-6">
             <h1 className="text-4xl font-black text-gray-800 mb-2">🍽️ 今天吃什麼？</h1>
@@ -367,7 +353,6 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        // --- 狀況二：已經有團 (顯示 Tabs 介面) ---
         <>
           <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
             <div className="max-w-5xl mx-auto px-4 flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide">
@@ -390,7 +375,6 @@ export default function Home() {
                 </button>
               ))}
 
-              {/* ★ 修改：點擊 + 號開啟全螢幕店家選擇牆 */}
               <button
                 onClick={() => setShowStoreSelector(true)}
                 className="ml-2 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all font-bold text-xl"
@@ -441,7 +425,18 @@ export default function Home() {
                         <span className="w-8 text-center font-bold text-gray-800">{customItemCount}</span>
                         <button onClick={() => setCustomItemCount(c => c + 1)} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>+</button>
                       </div>
-                      <button disabled={isExpired} onClick={() => { if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); handleOrder(customItemName, parseFloat(customItemPrice), customItemCount); }} className={`flex-1 px-4 py-3 rounded-lg font-bold transition whitespace-nowrap ${isExpired ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>下單</button>
+                      
+                      {/* ★ 修改：使用跟 MenuCard 一模一樣的 Orange Style */}
+                      <button 
+                        disabled={isExpired} 
+                        onClick={() => { 
+                          if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); 
+                          handleOrder(customItemName, parseFloat(customItemPrice), customItemCount); 
+                        }} 
+                        className={`flex-1 px-4 py-3 rounded-lg font-bold transition shadow-sm whitespace-nowrap ${isExpired ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}
+                      >
+                        {isExpired ? '已結單' : '加入'}
+                      </button>
                     </div>
                   </div>
                 </div>
