@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "部門訂便當系統",
-  description: "每日午餐便當統計",
+  title: "ML部門訂便當系統",
+  description: "每日午餐便當飲料統計",
 };
 
 export default function RootLayout({
