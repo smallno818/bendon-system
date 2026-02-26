@@ -27,43 +27,48 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
     setIsExporting(true);
 
     try {
-      // 1. 等待一下，確保畫面渲染完成
+      // 1. 等待渲染緩衝
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // 2. 開始轉換
       const canvas = await html2canvas(printRef.current, {
-        scale: 1.5, // 降低一點解析度，提高手機成功率
+        scale: 1.5, // 手機版解析度設定
         useCORS: true,
         allowTaint: true,
-        logging: false, // 關閉除錯紀錄
-        backgroundColor: '#ffffff', // 強制白底
-        // 在截圖時去除陰影與圓角，減少運算負擔
+        logging: false,
+        backgroundColor: '#ffffff', // 設定基底背景為白色
+        
+        // ★ 關鍵修正：在複製出來準備截圖的元素上，強制覆蓋顏色樣式
         onclone: (clonedDoc) => {
           const element = clonedDoc.querySelector('[data-print-target]') as HTMLElement;
           if (element) {
+            // 強制設定背景為 HEX 格式，避開 lab() 格式錯誤
+            element.style.backgroundColor = '#ffffff'; 
+            element.style.color = '#1f2937'; // 強制文字顏色 (Tailwind gray-800 的 HEX)
+            
+            // 移除可能導致運算錯誤的複雜樣式
             element.style.boxShadow = 'none';
             element.style.borderRadius = '0px';
-            element.style.border = '1px solid #ddd';
+            element.style.border = '1px solid #e5e7eb'; // 簡單的灰色邊框
           }
         }
       });
 
-      // 3. 轉成圖片
-      const imgData = canvas.toDataURL('image/jpeg', 0.9); // 改用 JPEG 壓縮，減少檔案大小
+      // 3. 轉成圖片 (使用 JPEG 壓縮以減少檔案大小與記憶體消耗)
+      const imgData = canvas.toDataURL('image/jpeg', 0.9);
 
       // 4. 建立 PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      // 5. 輸出
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`訂單_${storeName.replace(/\s+/g, '_')}.pdf`);
 
     } catch (e: any) {
-      console.error(e);
-      // 顯示真實錯誤訊息
-      alert(`PDF 匯出失敗：${e.message || e}\n\n建議：請嘗試直接使用手機截圖功能。`);
+      console.error('PDF Export Error:', e);
+      // 顯示更友善的錯誤訊息
+      alert(`PDF 匯出失敗 (Error: ${e.message || 'Unknown color format'})。\n\n建議：請直接使用手機截圖功能。`);
     } finally {
       setIsExporting(false);
     }
@@ -72,7 +77,7 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
   return (
     <div 
       ref={printRef} 
-      data-print-target // 標記這個是用來截圖的目標
+      data-print-target // 標記目標
       className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-10"
     >
       <div className="flex justify-between items-center mb-6">
@@ -84,7 +89,6 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
           <p className="text-sm text-gray-500">今日訂單統計</p>
         </div>
         
-        {/* data-html2canvas-ignore 會讓這個區塊在 PDF 中自動消失 */}
         <div className="flex gap-2 print:hidden" data-html2canvas-ignore="true">
           <button 
             onClick={handleExportPDF} 
@@ -132,7 +136,6 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                           {detail.customer_name}
                           {!isExpired && (
                             <button 
-                              // 這裡也加上 ignore，避免 PDF 出現紅色的刪除叉叉
                               data-html2canvas-ignore="true" 
                               onClick={() => onDeleteOrder(detail.id, detail.customer_name)}
                               className="text-red-400 hover:text-red-600 font-bold ml-1 print:hidden"
