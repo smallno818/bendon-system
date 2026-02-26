@@ -170,7 +170,7 @@ export default function Home() {
         <>
           {/* Banner 倒數計時 */}
           <div className="w-full h-48 bg-gray-800 relative flex flex-col items-center justify-center text-white text-center">
-            {currentStore.image_url && <img src={currentStore.image_url} alt={storeList.name} className="absolute inset-0 w-full h-full object-cover opacity-40" />}
+            {currentStore.image_url && <img src={currentStore.image_url} alt={currentStore.name} className="absolute inset-0 w-full h-full object-cover opacity-40" />}
             <div className="relative z-10">
               <h1 className="text-4xl font-bold mb-2">{currentStore.name}</h1>
               <div className={`px-6 py-2 rounded-full font-bold text-lg shadow-xl ${isExpired ? 'bg-red-600' : 'bg-yellow-500 text-yellow-900 animate-pulse'}`}>
