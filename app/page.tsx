@@ -4,35 +4,10 @@ import { supabase } from '@/lib/supabase';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-// 定義資料型別
-type Store = {
-  id: number;
-  name: string;
-  image_url: string | null;
-  phone: string | null;
-};
-
-type Product = {
-  id: number;
-  store_id: number;
-  name: string;
-  price: number;
-  description: string | null;
-};
-
-type Order = {
-  id: number;
-  item_name: string;
-  price: number;
-  customer_name: string;
-};
-
-type SummaryItem = {
-  name: string;
-  count: number;
-  total: number;
-  orderDetails: { id: number; customer_name: string }[];
-};
+type Store = { id: number; name: string; image_url: string | null; phone: string | null; };
+type Product = { id: number; store_id: number; name: string; price: number; description: string | null; };
+type Order = { id: number; item_name: string; price: number; customer_name: string; };
+type SummaryItem = { name: string; count: number; total: number; orderDetails: { id: number; customer_name: string }[]; };
 
 export default function Home() {
   const [currentStore, setCurrentStore] = useState<Store | null>(null);
@@ -42,33 +17,24 @@ export default function Home() {
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ★ 結單時間狀態
+  // 結單狀態
   const [endTime, setEndTime] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
 
   const [showLargeImage, setShowLargeImage] = useState(false);
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
-  const [inputEndTime, setInputEndTime] = useState(''); // 選擇店家時輸入的時間
+  const [inputEndDateTime, setInputEndDateTime] = useState(''); // 包含日期的設定值
 
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     checkDailyStatus();
+    const ordersChannel = supabase.channel('orders').on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => fetchTodayOrders()).subscribe();
+    const statusChannel = supabase.channel('status').on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_status' }, () => checkDailyStatus()).subscribe();
 
-    const ordersChannel = supabase
-      .channel('realtime_orders')
-      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => fetchTodayOrders())
-      .subscribe();
-
-    const statusChannel = supabase
-      .channel('realtime_status')
-      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_status' }, () => checkDailyStatus())
-      .subscribe();
-
-    // 每分鐘檢查一次是否過期
-    const timer = setInterval(checkIfExpired, 10000);
-
+    const timer = setInterval(updateCountdown, 1000);
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(statusChannel);
@@ -76,22 +42,27 @@ export default function Home() {
     };
   }, [endTime]);
 
-  const checkIfExpired = () => {
-    if (!endTime) return setIsExpired(false);
-    const now = new Date();
-    const end = new Date(endTime);
-    setIsExpired(now > end);
+  const updateCountdown = () => {
+    if (!endTime) return;
+    const now = new Date().getTime();
+    const end = new Date(endTime).getTime();
+    const diff = end - now;
+
+    if (diff <= 0) {
+      setIsExpired(true);
+      setTimeLeft('已結單');
+    } else {
+      setIsExpired(false);
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft(`倒數 ${hours}時 ${mins}分 ${secs}秒`);
+    }
   };
 
   const checkDailyStatus = async () => {
     const today = new Date().toISOString().split('T')[0];
-    const { data: statusData } = await supabase
-      .from('daily_status')
-      .select('active_store_id, end_time')
-      .eq('order_date', today)
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: statusData } = await supabase.from('daily_status').select('*').eq('order_date', today).order('id', { ascending: false }).limit(1).maybeSingle();
     
     if (statusData?.active_store_id) {
       setEndTime(statusData.end_time);
@@ -103,7 +74,6 @@ export default function Home() {
       if (stores) setStoreList(stores);
     }
     setLoading(false);
-    checkIfExpired();
   };
 
   const loadStoreData = async (storeId: number) => {
@@ -115,27 +85,18 @@ export default function Home() {
   };
 
   const handleSelectStore = async (storeId: number) => {
-    if (!inputEndTime) return alert('請設定今日結單時間');
-    
+    if (!inputEndDateTime) return alert('請設定結單日期與時間');
     const todayStr = new Date().toISOString().split('T')[0];
-    const fullEndDateTime = new Date(`${todayStr}T${inputEndTime}:00`).toISOString();
-
-    const confirm = window.confirm(`將設定於 ${inputEndTime} 結單，確定嗎？`);
-    if (!confirm) return;
-
-    await supabase.from('daily_status').delete().eq('order_date', todayStr);
     const { error } = await supabase.from('daily_status').insert([{ 
       active_store_id: storeId,
       order_date: todayStr,
-      end_time: fullEndDateTime
+      end_time: new Date(inputEndDateTime).toISOString()
     }]);
-
     if (!error) checkDailyStatus();
   };
 
   const handleResetStore = async () => {
-    const confirm = window.confirm('更換店家會清空今日所有訂單，確定嗎？');
-    if (!confirm) return;
+    if (!window.confirm('確定換店家？這會清空今日訂單！')) return;
     const today = new Date().toISOString().split('T')[0];
     await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
     await supabase.from('daily_status').delete().eq('order_date', today);
@@ -144,11 +105,8 @@ export default function Home() {
 
   const fetchTodayOrders = async () => {
     const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase.from('orders').select('*').gte('created_at', `${today}T00:00:00`).order('created_at', { ascending: false });
-    if (data) {
-      setOrders(data);
-      calculateSummary(data);
-    }
+    const { data } = await supabase.from('orders').select('*').gte('created_at', `${today}T00:00:00`);
+    if (data) calculateSummary(data);
   };
 
   const calculateSummary = (ordersData: Order[]) => {
@@ -162,162 +120,120 @@ export default function Home() {
     setSummary(Object.values(stats));
   };
 
-  const handleOrder = async (itemName: string, itemPrice: number) => {
-    if (isExpired) return alert('已超過結單時間，無法再下單！');
-    const name = prompt(`訂購 ${itemName}，請輸入名字：`);
-    if (!name) return;
-    await supabase.from('orders').insert([{ item_name: itemName, price: itemPrice, customer_name: name }]);
-  };
-
-  const handleDeleteOrder = async (orderId: number, customerName: string) => {
-    if (isExpired) return alert('已結單，無法修改訂單。');
-    const confirmName = prompt(`輸入名字「${customerName}」確認刪除：`);
-    if (confirmName === customerName) await supabase.from('orders').delete().eq('id', orderId);
-  };
-
-  // ★ 修復後的 PDF 匯出函數
   const handleExportPDF = async () => {
     if (!printRef.current) return;
+    const btn = document.getElementById('pdf-btn');
+    if (btn) btn.innerText = '處理中...';
+
     try {
-      const element = printRef.current;
-      const canvas = await html2canvas(element, { 
-        scale: 2, 
-        useCORS: true, 
-        allowTaint: true,
-        backgroundColor: '#ffffff'
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: 1200 // 確保匯出時寬度固定，避免手機端切到
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`訂單統計_${currentStore?.name}.pdf`);
+      pdf.save(`訂單_${currentStore?.name}.pdf`);
     } catch (e) {
-      alert('PDF 匯出失敗，請檢查網路或直接截圖');
+      alert('PDF 生成失敗，建議直接截圖。錯誤：' + e);
+    } finally {
+      if (btn) btn.innerText = '📄 匯出 PDF';
     }
   };
 
-  if (loading) return <div className="p-10 text-center text-gray-400">系統載入中...</div>;
+  if (loading) return <div className="p-10 text-center">載入中...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 relative">
-      {!currentStore && (
-        <div className="max-w-4xl mx-auto p-6">
-          <header className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">🤷‍♂️ 今天吃什麼？</h1>
-            <div className="mt-4 inline-flex items-center gap-2 bg-blue-50 p-3 rounded-lg border border-blue-200">
-              <span className="text-sm font-bold text-blue-700">設定今日結單時間：</span>
-              <input type="time" value={inputEndTime} onChange={e => setInputEndTime(e.target.value)} className="border p-1 rounded font-bold text-blue-800 outline-none" />
-            </div>
-          </header>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {!currentStore ? (
+        <div className="max-w-4xl mx-auto p-6 text-center">
+          <h1 className="text-3xl font-bold mb-6">🍱 今天吃什麼？</h1>
+          <div className="bg-white p-6 rounded-xl shadow mb-8 border-2 border-blue-100 inline-block">
+            <label className="block text-blue-800 font-bold mb-2 text-sm">請設定結單時間（包含日期）：</label>
+            <input type="datetime-local" value={inputEndDateTime} onChange={e => setInputEndDateTime(e.target.value)} className="border-2 border-blue-300 p-2 rounded-lg font-bold outline-none focus:border-blue-500" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {storeList.map(store => (
-              <div key={store.id} className="bg-white rounded-xl shadow-lg border border-gray-100 flex flex-col">
-                <div className="h-40 bg-gray-200">{store.image_url && <img src={store.image_url} alt={store.name} className="w-full h-full object-cover" />}</div>
-                <div className="p-5 text-center flex-1">
-                  <h3 className="text-xl font-bold text-gray-800 mb-1">{store.name}</h3>
-                  <button onClick={() => handleSelectStore(store.id)} className="mt-4 w-full bg-blue-600 text-white py-2 rounded-full font-bold hover:bg-blue-700">決定吃這家</button>
-                </div>
+              <div key={store.id} className="bg-white rounded-xl shadow-lg p-5">
+                <h3 className="text-xl font-bold mb-4">{store.name}</h3>
+                <button onClick={() => handleSelectStore(store.id)} className="w-full bg-blue-600 text-white py-2 rounded-full font-bold">開啟點餐團</button>
               </div>
             ))}
           </div>
         </div>
-      )}
-
-      {currentStore && (
+      ) : (
         <>
-          <div className="w-full h-48 bg-gray-800 relative overflow-hidden print:hidden">
-            {currentStore.image_url && <img src={currentStore.image_url} alt={currentStore.name} className="w-full h-full object-cover opacity-60" />}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <h1 className="text-white text-4xl font-bold drop-shadow-lg">{currentStore.name}</h1>
-              {endTime && (
-                <div className={`mt-3 px-4 py-1 rounded-full font-bold text-sm ${isExpired ? 'bg-red-500 text-white animate-pulse' : 'bg-yellow-400 text-yellow-900'}`}>
-                  {isExpired ? '🔴 已結單' : `⏳ 結單時間：${new Date(endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-                </div>
-              )}
+          {/* Banner 倒數計時 */}
+          <div className="w-full h-48 bg-gray-800 relative flex flex-col items-center justify-center text-white text-center">
+            {currentStore.image_url && <img src={currentStore.image_url} alt={storeList.name} className="absolute inset-0 w-full h-full object-cover opacity-40" />}
+            <div className="relative z-10">
+              <h1 className="text-4xl font-bold mb-2">{currentStore.name}</h1>
+              <div className={`px-6 py-2 rounded-full font-bold text-lg shadow-xl ${isExpired ? 'bg-red-600' : 'bg-yellow-500 text-yellow-900 animate-pulse'}`}>
+                {timeLeft}
+              </div>
+              <p className="text-xs mt-2 opacity-80">結單於：{new Date(endTime!).toLocaleString()}</p>
             </div>
           </div>
 
-          <button onClick={handleResetStore} className="fixed bottom-8 right-8 z-40 bg-orange-600 text-white px-6 py-4 rounded-2xl shadow-2xl font-bold print:hidden transition hover:scale-105 active:scale-95">🔄 換一家</button>
-
           <div className="max-w-5xl mx-auto p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
-              {menu.map((item) => (
-                <div key={item.id} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between ${isExpired ? 'opacity-60' : ''}`}>
-                  <h3 className="font-bold text-gray-800">{item.name}</h3>
-                  <div className="flex justify-between items-center mt-4">
-                    <span className="text-orange-600 font-bold">${item.price}</span>
-                    <button disabled={isExpired} onClick={() => handleOrder(item.name, item.price)} className={`px-3 py-1 rounded-lg text-sm font-bold ${isExpired ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}>+ 點餐</button>
-                  </div>
-                </div>
+            {/* 菜單區 (略) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {menu.map(item => (
+                <button key={item.id} disabled={isExpired} onClick={() => {
+                  const name = prompt(`你要訂購 ${item.name}，請輸入名字：`);
+                  if (name) supabase.from('orders').insert([{ item_name: item.name, price: item.price, customer_name: name }]);
+                }} className={`bg-white p-4 rounded-xl shadow border text-left ${isExpired ? 'opacity-50 cursor-not-allowed' : 'hover:border-orange-500'}`}>
+                  <div className="font-bold">{item.name}</div>
+                  <div className="text-orange-600 font-bold mt-2">${item.price}</div>
+                </button>
               ))}
             </div>
 
-            <div className={`mb-12 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input placeholder={isExpired ? "已結單" : "特殊需求 (例：不要蔥)"} value={customItemName} onChange={e => setCustomItemName(e.target.value)} className="flex-1 border p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
-                <input type="number" placeholder="金額" value={customItemPrice} onChange={e => setCustomItemPrice(e.target.value)} className="w-24 border p-3 rounded-lg text-center font-bold" />
-                <button onClick={() => { if(!customItemName || !customItemPrice) return; handleOrder(customItemName, parseInt(customItemPrice)); }} className="bg-blue-600 text-white px-6 py-3 rounded-lg font-bold">下單</button>
-              </div>
-            </div>
-
-            <div ref={printRef} className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-10">
+            {/* 統計區 */}
+            <div ref={printRef} className="bg-white p-6 rounded-xl shadow-2xl border border-gray-100">
               <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">{currentStore.name}</h2>
-                  <p className="text-sm text-gray-500 mt-1">今日訂單統計 {isExpired && ' (已結單)'}</p>
-                </div>
-                <div className="flex gap-2 print:hidden">
-                  <button onClick={handleExportPDF} className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm shadow-md font-bold transition hover:bg-red-700">📄 匯出 PDF</button>
-                  <button onClick={() => window.print()} className="bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold shadow-md hover:bg-gray-900 transition">🖨️ 列印</button>
+                <h2 className="text-2xl font-bold">訂單統計 {isExpired && ' (已結單)'}</h2>
+                <div className="flex gap-2">
+                  <button id="pdf-btn" onClick={handleExportPDF} className="bg-red-600 text-white px-4 py-2 rounded font-bold text-sm">📄 匯出 PDF</button>
+                  <button onClick={() => window.print()} className="bg-gray-800 text-white px-4 py-2 rounded font-bold text-sm">🖨️ 列印</button>
                 </div>
               </div>
 
-              {orders.length > 0 ? (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-600 text-sm border-b">
-                      <th className="p-3">品項</th>
-                      <th className="p-3 text-center">數量</th>
-                      <th className="p-3 text-right">小計</th>
-                      <th className="p-3">訂購人</th>
+              <table className="w-full text-left">
+                <thead className="border-b-2">
+                  <tr><th className="p-2">品項</th><th className="p-2 text-center">數量</th><th className="p-2 text-right">小計</th><th className="p-2">訂購人</th></tr>
+                </thead>
+                <tbody>
+                  {summary.map(row => (
+                    <tr key={row.name} className="border-b">
+                      <td className="p-2 font-bold">{row.name}</td>
+                      <td className="p-2 text-center text-blue-600 font-bold">{row.count}</td>
+                      <td className="p-2 text-right font-bold">${row.total}</td>
+                      <td className="p-2 text-xs flex flex-wrap gap-1">
+                        {row.orderDetails.map(d => (
+                          <span key={d.id} className="bg-gray-100 px-2 py-1 rounded">{d.customer_name}</span>
+                        ))}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {summary.map((row) => (
-                      <tr key={row.name} className="border-b hover:bg-gray-50 transition">
-                        <td className="p-3 font-medium text-gray-800">{row.name}</td>
-                        <td className="p-3 text-center font-bold text-blue-600">{row.count}</td>
-                        <td className="p-3 text-right font-bold text-gray-800">${row.total}</td>
-                        <td className="p-3 flex flex-wrap gap-2">
-                          {row.orderDetails.map((detail) => (
-                            <span key={detail.id} className="bg-gray-100 px-2 py-1 rounded text-xs flex items-center font-medium">
-                              {detail.customer_name}
-                              {!isExpired && <button onClick={() => handleDeleteOrder(detail.id, detail.customer_name)} className="text-red-400 ml-1 hover:text-red-600">×</button>}
-                            </span>
-                          ))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-900 text-white font-bold">
-                      <td className="p-3 rounded-bl-xl text-lg" colSpan={2}>總計</td>
-                      <td className="p-3 text-right text-lg text-yellow-400">${summary.reduce((a, b) => a + b.total, 0)}</td>
-                      <td className="p-3 rounded-br-xl"></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              ) : <p className="text-center py-10 text-gray-400 font-bold border-2 border-dashed rounded-xl mt-4">目前還沒有人點餐 🍱</p>}
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-900 text-white font-bold">
+                    <td colSpan={2} className="p-3">總額</td>
+                    <td className="p-3 text-right text-yellow-400">${summary.reduce((a,b) => a+b.total, 0)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
+            
+            <button onClick={handleResetStore} className="mt-10 w-full bg-gray-200 text-gray-600 py-3 rounded-xl font-bold">🔄 換一家店 (清空訂單)</button>
           </div>
-          
-          {showLargeImage && currentStore.image_url && (
-            <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowLargeImage(false)}>
-              <img src={currentStore.image_url} alt={currentStore.name} className="max-w-full max-h-full rounded-lg shadow-2xl transition-transform duration-300" />
-              <p className="absolute bottom-10 text-white/50 text-sm">點擊任意處關閉</p>
-            </div>
-          )}
         </>
       )}
     </div>
