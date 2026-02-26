@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Store, Product, Order, SummaryItem, Group } from '@/types';
 
@@ -16,7 +16,15 @@ export function useGroupOrders() {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
 
-  // --- 內部輔助函數：計算統計 ---
+  // ★ 關鍵：用 Ref 來隨時追蹤「當前選中的群組」，解決跨裝置監聽時的變數過期問題
+  const activeGroupIdRef = useRef<number | null>(null);
+
+  // 當 State 改變時，同步更新 Ref (讓監聽器隨時能拿到最新 ID)
+  useEffect(() => {
+    activeGroupIdRef.current = activeGroupId;
+  }, [activeGroupId]);
+
+  // --- 內部輔助：計算統計 ---
   const calculateSummary = (ordersData: Order[]) => {
     const stats: Record<string, SummaryItem> = {};
     ordersData.forEach(order => {
@@ -31,7 +39,9 @@ export function useGroupOrders() {
   };
 
   // --- API 動作：抓取訂單 ---
+  // 使用 useCallback 確保函數記憶體位置不變，避免 useEffect 重複執行
   const fetchOrders = useCallback(async (groupId: number) => {
+    console.log('正在更新訂單，群組ID:', groupId);
     const { data } = await supabase
       .from('orders')
       .select('*')
@@ -47,7 +57,7 @@ export function useGroupOrders() {
   // --- API 動作：切換群組 ---
   const switchGroup = useCallback(async (groupId: number, storeId: number) => {
     setActiveGroupId(groupId);
-    // 載入菜單
+    
     const { data: menuData } = await supabase
       .from('products')
       .select('*')
@@ -55,12 +65,12 @@ export function useGroupOrders() {
       .order('price', { ascending: true });
     if (menuData) setMenu(menuData);
     
-    // 載入訂單
-    fetchOrders(groupId);
+    await fetchOrders(groupId);
   }, [fetchOrders]);
 
   // --- API 動作：抓取今日開團 ---
   const fetchTodayGroups = useCallback(async () => {
+    console.log('正在檢查今日開團...');
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
       .from('daily_groups')
@@ -68,24 +78,38 @@ export function useGroupOrders() {
       .eq('order_date', today)
       .order('id', { ascending: true });
     
-    if (data && data.length > 0) {
+    if (data) {
       setTodayGroups(data as any);
-      
-      // 自動切換邏輯
-      const currentGroupStillExists = data.find((g: any) => g.id === activeGroupId);
-      if (!activeGroupId || !currentGroupStillExists) {
-        switchGroup(data[0].id, data[0].store_id);
-      } else {
-        fetchOrders(activeGroupId);
-      }
     } else {
       setTodayGroups([]);
+    }
+    setLoading(false);
+  }, []);
+
+  // --- 監聽資料變化並自動導航 ---
+  useEffect(() => {
+    if (loading) return;
+
+    if (todayGroups.length === 0) {
       setActiveGroupId(null);
       setOrders([]);
       setSummary([]);
+      return;
     }
-    setLoading(false);
-  }, [activeGroupId, switchGroup, fetchOrders]);
+
+    const currentId = activeGroupIdRef.current;
+    const currentGroupStillExists = todayGroups.find(g => g.id === currentId);
+
+    if (!currentId || !currentGroupStillExists) {
+      // 如果目前沒選，或是原本選的被刪除了 -> 自動跳到第一團
+      const firstGroup = todayGroups[0];
+      switchGroup(firstGroup.id, firstGroup.store_id);
+    } else if (currentId) {
+       // 如果目前的還在，順便刷新一下訂單確保最新
+       fetchOrders(currentId);
+    }
+  }, [todayGroups, loading, switchGroup, fetchOrders]);
+
 
   // --- API 動作：抓取店家列表 ---
   const fetchStores = useCallback(async () => {
@@ -120,33 +144,38 @@ export function useGroupOrders() {
     return () => clearInterval(timer);
   }, [activeGroupId, todayGroups]);
 
-  // --- 初始化與 Real-time 監聽 ---
+  // --- ★★★ 核心：Real-time 跨裝置監聽 ★★★ ---
   useEffect(() => {
+    // 1. 載入初始資料
     fetchStores();
     fetchTodayGroups();
     
-    // 監聽群組 (開團/刪除團)
-    const groupChannel = supabase.channel('realtime_groups')
+    // 2. 建立 Real-time 連線
+    // 這裡我們不放任何依賴 (Dependency Array 為空)，確保連線只建立一次，不會斷斷續續
+    
+    const channel = supabase.channel('global_changes')
+      // (A) 監聽群組變化：當有人開團或刪團時 -> 重抓群組列表
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => {
+        console.log('收到群組變更通知！');
         fetchTodayGroups();
       })
-      .subscribe();
-
-    // 監聽訂單 (別人下單時更新)
-    const ordersChannel = supabase.channel('realtime_orders')
+      // (B) 監聽訂單變化：當有人下單或刪單時 -> 重抓「目前群組」的訂單
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => {
-        // ★ 只有當目前有選中群組時，才更新訂單
-        if (activeGroupId) fetchOrders(activeGroupId);
+        console.log('收到訂單變更通知！');
+        // ★ 這裡使用 Ref 來讀取當下的 ID，解決閉包問題
+        if (activeGroupIdRef.current) {
+          fetchOrders(activeGroupIdRef.current);
+        }
       })
       .subscribe();
     
     return () => {
-      supabase.removeChannel(groupChannel);
-      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(channel);
     };
-  }, [fetchStores, fetchTodayGroups, fetchOrders, activeGroupId]);
+  }, [fetchStores, fetchTodayGroups, fetchOrders]); // 這些函數都是 useCallback 的，所以不會導致重複執行
 
-  // --- 使用者動作：下單 ---
+  // --- 使用者動作 ---
+
   const createOrder = async (itemName: string, itemPrice: number, quantity: number, customerName: string) => {
     if (isExpired) throw new Error('已經超過結單時間');
     if (!activeGroupId) throw new Error('沒有選擇群組');
@@ -160,24 +189,19 @@ export function useGroupOrders() {
     }]);
 
     if (error) throw error;
-    
-    // ★ 修正重點：成功後，立刻手動重抓一次訂單，確保 UI 秒更新
-    await fetchOrders(activeGroupId);
+    // 本地操作也要手動刷新，讓自己看起來最快
+    await fetchOrders(activeGroupId); 
   };
 
-  // --- 使用者動作：刪除訂單 ---
   const deleteOrder = async (orderId: number) => {
     if (isExpired) throw new Error('已結單，無法刪除');
     if (!activeGroupId) return;
 
     const { error } = await supabase.from('orders').delete().eq('id', orderId);
     if (error) throw error;
-
-    // ★ 修正重點：成功後，立刻手動重抓一次訂單
     await fetchOrders(activeGroupId);
   };
 
-  // --- 使用者動作：建立開團 ---
   const createGroup = async (storeId: number, endTime: string, groupName: string) => {
     const todayStr = new Date().toISOString().split('T')[0];
     const fullEndDateTime = new Date(endTime).toISOString();
@@ -193,7 +217,6 @@ export function useGroupOrders() {
     await fetchTodayGroups(); 
   };
 
-  // --- 使用者動作：關閉開團 ---
   const closeGroup = async () => {
     if (!activeGroupId) return;
     await supabase.from('orders').delete().eq('group_id', activeGroupId);

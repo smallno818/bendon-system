@@ -1,12 +1,5 @@
 import React from 'react';
-
-// ★ 修改：加入 quantity
-type SummaryItem = {
-  name: string;
-  count: number;
-  total: number;
-  orderDetails: { id: number; customer_name: string; quantity: number }[];
-};
+import { SummaryItem } from '@/types'; // 引用統一的型別定義
 
 type Props = {
   storeName: string;
@@ -55,29 +48,46 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
             <table className="w-full text-left border-collapse print:text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b border-gray-200 print:bg-gray-100">
-                  <th className="p-3 font-semibold">品項</th>
-                  <th className="p-3 text-right font-semibold">單價</th>
-                  <th className="p-3 text-center font-semibold">數量</th>
-                  <th className="p-3 text-right font-semibold">小計</th>
-                  <th className="p-3 font-semibold w-1/3">訂購人</th>
+                  {/* ★ 修改重點：加入 min-w-[140px] 讓它有基礎寬度，不會被擠壓 */}
+                  <th className="p-3 font-semibold min-w-[140px]">品項</th>
+                  <th className="p-3 text-right font-semibold whitespace-nowrap">單價</th>
+                  <th className="p-3 text-center font-semibold whitespace-nowrap">數量</th>
+                  <th className="p-3 text-right font-semibold whitespace-nowrap">小計</th>
+                  <th className="p-3 font-semibold w-1/3 min-w-[150px]">訂購人</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {summary.map((row) => (
                   <tr key={row.name} className="hover:bg-blue-50/50 transition break-inside-avoid">
-                    <td className="p-3 font-medium text-gray-800">{row.name}</td>
-                    <td className="p-3 text-right text-gray-500 font-medium">${Math.round((row.total / row.count) * 10) / 10}</td>
-                    <td className="p-3 text-center">
-                      <span className="bg-blue-100 text-blue-800 py-1 px-2 rounded font-bold text-xs print:bg-transparent print:text-black print:border print:border-gray-300">{row.count}</span>
+                    
+                    {/* ★ 修改重點：
+                        break-words: 允許長單字換行
+                        whitespace-normal: 強制開啟換行模式
+                    */}
+                    <td className="p-3 font-medium text-gray-800 break-words whitespace-normal">
+                      {row.name}
                     </td>
-                    <td className="p-3 text-right font-bold text-gray-800">${row.total}</td>
+                    
+                    <td className="p-3 text-right text-gray-500 font-medium whitespace-nowrap">
+                      ${Math.round((row.total / row.count) * 10) / 10}
+                    </td>
+
+                    <td className="p-3 text-center whitespace-nowrap">
+                      <span className="bg-blue-100 text-blue-800 py-1 px-2 rounded font-bold text-xs print:bg-transparent print:text-black print:border print:border-gray-300">
+                        {row.count}
+                      </span>
+                    </td>
+                    
+                    <td className="p-3 text-right font-bold text-gray-800 whitespace-nowrap">
+                      ${row.total}
+                    </td>
+                    
                     <td className="p-3 text-sm text-gray-500">
                       <div className="flex flex-wrap gap-2">
                         {row.orderDetails.map((detail) => (
                           <span key={detail.id} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-200 print:border-gray-300">
                             {detail.customer_name}
                             
-                            {/* ★ 如果數量大於 1，顯示 (xN) */}
                             {detail.quantity > 1 && (
                               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-1 rounded ml-1">
                                 x{detail.quantity}
@@ -88,7 +98,6 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                               <button 
                                 onClick={() => onDeleteOrder(detail.id, detail.customer_name)}
                                 className="text-red-400 hover:text-red-600 font-bold ml-1 print:hidden"
-                                // ★ 提示使用者會刪除多少
                                 title={`刪除 ${detail.customer_name} 的 ${detail.quantity} 份餐點`}
                               >
                                 ×
