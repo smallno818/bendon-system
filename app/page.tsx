@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // 引入元件
-import { StoreCard } from '@/components/StoreCard'; // ★ 記得要把 StoreCard 引回來
+import { StoreCard } from '@/components/StoreCard';
 import { StoreBanner } from '@/components/StoreBanner';
 import { MenuCard } from '@/components/MenuCard';
 import { OrderSummary } from '@/components/OrderSummary';
@@ -30,7 +30,6 @@ export default function Home() {
   const [isExpired, setIsExpired] = useState(false);
   const [showLargeImage, setShowLargeImage] = useState(false);
   const [showStartGroupModal, setShowStartGroupModal] = useState(false); 
-  // ★ 新增：紀錄點擊卡片時的店家 ID，用來傳給 Modal
   const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
 
   const [customItemName, setCustomItemName] = useState('');
@@ -87,6 +86,7 @@ export default function Home() {
     
     if (data && data.length > 0) {
       setTodayGroups(data as any);
+      // 如果 activeGroupId 失效（被刪除了），則切換到第一個
       if (!activeGroupId || !data.find((g: any) => g.id === activeGroupId)) {
         handleSwitchGroup(data[0].id, data[0].store_id);
       } else {
@@ -204,14 +204,37 @@ export default function Home() {
     if (!error) {
       alert('✅ 開團成功！');
       setShowStartGroupModal(false);
-      setPreSelectedStoreId(null); // 清除預選
+      setPreSelectedStoreId(null);
       fetchTodayGroups();
     } else {
       alert('開團失敗：' + error.message);
     }
   };
 
-  // ★ 處理點擊卡片：設定預選店家 -> 打開 Modal
+  // ★ 新增：關閉目前群組 (取代原本的 handleResetStore)
+  const handleCloseCurrentGroup = async () => {
+    if (!activeGroupId) return;
+    const currentGroup = todayGroups.find(g => g.id === activeGroupId);
+    if (!currentGroup) return;
+
+    if (!window.confirm(`確定要關閉「${currentGroup.store.name}」的團購嗎？\n⚠️ 這會刪除此團的所有訂單，且無法復原！`)) return;
+
+    setLoading(true);
+    
+    // 1. 先刪除該團的訂單
+    await supabase.from('orders').delete().eq('group_id', activeGroupId);
+    
+    // 2. 再刪除該團的群組紀錄
+    const { error } = await supabase.from('daily_groups').delete().eq('id', activeGroupId);
+
+    if (error) {
+      alert('刪除失敗：' + error.message);
+    } else {
+      // 成功後，fetchTodayGroups 會自動被觸發並重整畫面
+    }
+    setLoading(false);
+  };
+
   const handleCardClick = (storeId: number) => {
     setPreSelectedStoreId(storeId);
     setShowStartGroupModal(true);
@@ -224,11 +247,10 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
       
-      {/* 開團 Modal */}
       {showStartGroupModal && (
         <StartGroupModal 
           stores={storeList} 
-          initialStoreId={preSelectedStoreId} // ★ 傳入預選 ID
+          initialStoreId={preSelectedStoreId}
           onClose={() => {
             setShowStartGroupModal(false);
             setPreSelectedStoreId(null);
@@ -237,10 +259,6 @@ export default function Home() {
         />
       )}
 
-      {/* 狀況一：今天還沒開團
-         -> 顯示「請選擇店家開團」標題
-         -> 下方列出所有店家卡片
-      */}
       {todayGroups.length === 0 ? (
         <div className="max-w-6xl mx-auto p-6">
           <div className="text-center py-10">
@@ -255,14 +273,12 @@ export default function Home() {
                 name={store.name} 
                 imageUrl={store.image_url} 
                 phone={store.phone} 
-                // ★ 這裡改成開啟開團 Modal
                 onSelect={() => handleCardClick(store.id)} 
               />
             ))}
           </div>
         </div>
       ) : (
-        // 狀況二：已經有開團 -> 顯示 Tabs 介面
         <>
           <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
             <div className="max-w-5xl mx-auto px-4 flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide">
@@ -309,6 +325,16 @@ export default function Home() {
 
               <button onClick={scrollToTop} className={`fixed bottom-8 right-8 z-40 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`} title="回到頂部">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+              </button>
+
+              {/* ★ 修正：將原本的「換一家」改為「關閉此團」 */}
+              <button 
+                onClick={handleCloseCurrentGroup} 
+                className="fixed bottom-28 right-8 z-40 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1"
+                title="刪除目前顯示的團購"
+              >
+                <span className="text-xl">❌</span>
+                <span className="text-xs font-bold">關閉此團</span>
               </button>
 
               <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
