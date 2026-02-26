@@ -19,40 +19,43 @@ export function LoginPage() {
       alert('登入失敗：' + error.message);
       setLoading(false);
     } else {
-      // 登入成功後，Supabase 會自動更新 session，頁面會自動重整或切換
-      // 這裡不需要做額外導向，交給 page.tsx 的監聽器處理
+      // 登入成功，頁面會自動重整
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl border border-slate-100">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-2xl border border-gray-200">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-slate-800">後台登入</h1>
-          <p className="text-slate-500 mt-2 font-medium">請輸入管理員帳號密碼</p>
+          {/* 標題改為最深的 Gray-900 */}
+          <h1 className="text-3xl font-extrabold text-gray-900">後台登入</h1>
+          {/* 副標題加深並加粗 */}
+          <p className="text-gray-600 mt-2 font-bold">請輸入管理員帳號密碼</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Email</label>
+            {/* Label 改為深灰色 */}
+            <label className="block text-sm font-bold text-gray-800 mb-2">Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium transition-all"
+              // 輸入文字改為全黑 (text-gray-900)，提示文字改為深灰 (placeholder-gray-500)
+              className="w-full h-12 px-4 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none font-bold text-gray-900 placeholder-gray-500 transition-all"
               placeholder="admin@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Password</label>
+            <label className="block text-sm font-bold text-gray-800 mb-2">Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium transition-all"
+              className="w-full h-12 px-4 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none font-bold text-gray-900 placeholder-gray-500 transition-all"
               placeholder="••••••••"
             />
           </div>
@@ -60,7 +63,7 @@ export function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-12 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:bg-gray-400"
+            className="w-full h-12 bg-indigo-700 text-white rounded-xl font-bold text-lg shadow-lg shadow-indigo-200 hover:bg-indigo-800 transition-all active:scale-95 disabled:bg-gray-400"
           >
             {loading ? '驗證中...' : '登入系統'}
           </button>
