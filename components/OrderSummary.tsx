@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -20,42 +20,61 @@ type Props = {
 
 export function OrderSummary({ storeName, summary, totalAmount, totalCount, isExpired, onDeleteOrder }: Props) {
   const printRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleExportPDF = async () => {
     if (!printRef.current) return;
-    
-    const btn = document.getElementById('pdf-btn');
-    if (btn) btn.innerText = '處理中...';
+    setIsExporting(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // 等待渲染
+      // 1. 等待一下，確保畫面渲染完成
+      await new Promise(resolve => setTimeout(resolve, 100));
 
+      // 2. 開始轉換
       const canvas = await html2canvas(printRef.current, {
-        scale: 2, 
-        useCORS: true, 
+        scale: 1.5, // 降低一點解析度，提高手機成功率
+        useCORS: true,
         allowTaint: true,
-        logging: true,
-        backgroundColor: '#ffffff',
-        windowWidth: 1200, 
+        logging: false, // 關閉除錯紀錄
+        backgroundColor: '#ffffff', // 強制白底
+        // 在截圖時去除陰影與圓角，減少運算負擔
+        onclone: (clonedDoc) => {
+          const element = clonedDoc.querySelector('[data-print-target]') as HTMLElement;
+          if (element) {
+            element.style.boxShadow = 'none';
+            element.style.borderRadius = '0px';
+            element.style.border = '1px solid #ddd';
+          }
+        }
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      // 3. 轉成圖片
+      const imgData = canvas.toDataURL('image/jpeg', 0.9); // 改用 JPEG 壓縮，減少檔案大小
+
+      // 4. 建立 PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`訂單統計_${storeName}.pdf`);
-    } catch (e) {
+      // 5. 輸出
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`訂單_${storeName.replace(/\s+/g, '_')}.pdf`);
+
+    } catch (e: any) {
       console.error(e);
-      alert('PDF 生成失敗，建議改用手機截圖。');
+      // 顯示真實錯誤訊息
+      alert(`PDF 匯出失敗：${e.message || e}\n\n建議：請嘗試直接使用手機截圖功能。`);
     } finally {
-      if (btn) btn.innerText = '📄 匯出 PDF';
+      setIsExporting(false);
     }
   };
 
   return (
-    <div ref={printRef} className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-10">
+    <div 
+      ref={printRef} 
+      data-print-target // 標記這個是用來截圖的目標
+      className="bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-10"
+    >
       <div className="flex justify-between items-center mb-6">
         <div className="flex flex-col">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -64,13 +83,15 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
           </h2>
           <p className="text-sm text-gray-500">今日訂單統計</p>
         </div>
-        <div className="flex gap-2 print:hidden">
+        
+        {/* data-html2canvas-ignore 會讓這個區塊在 PDF 中自動消失 */}
+        <div className="flex gap-2 print:hidden" data-html2canvas-ignore="true">
           <button 
-            id="pdf-btn"
             onClick={handleExportPDF} 
-            className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 text-sm shadow-md hover:bg-red-700 font-bold transition"
+            disabled={isExporting}
+            className={`text-white px-4 py-2 rounded flex items-center gap-2 text-sm shadow-md font-bold transition ${isExporting ? 'bg-gray-400 cursor-wait' : 'bg-red-600 hover:bg-red-700'}`}
           >
-            📄 匯出 PDF
+            {isExporting ? '處理中...' : '📄 匯出 PDF'}
           </button>
           <button 
             onClick={() => window.print()} 
@@ -111,6 +132,8 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                           {detail.customer_name}
                           {!isExpired && (
                             <button 
+                              // 這裡也加上 ignore，避免 PDF 出現紅色的刪除叉叉
+                              data-html2canvas-ignore="true" 
                               onClick={() => onDeleteOrder(detail.id, detail.customer_name)}
                               className="text-red-400 hover:text-red-600 font-bold ml-1 print:hidden"
                             >
