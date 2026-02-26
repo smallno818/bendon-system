@@ -41,8 +41,12 @@ export default function Home() {
     fetchStores();
     fetchTodayGroups();
     
+    // 監聽群組變化 (開團或刪除團)
     const groupChannel = supabase.channel('realtime_groups')
-      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => fetchTodayGroups())
+      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => {
+        // 收到變更訊號時，重新抓取列表
+        fetchTodayGroups();
+      })
       .subscribe();
 
     const ordersChannel = supabase.channel('realtime_orders')
@@ -65,7 +69,7 @@ export default function Home() {
       clearInterval(timer);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [activeGroupId]);
+  }, [activeGroupId]); // 依賴 activeGroupId，確保切換時邏輯正確
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -76,6 +80,7 @@ export default function Home() {
     if (data) setStoreList(data);
   };
 
+  // ★ 關鍵修正：優化群組載入與自動切換邏輯
   const fetchTodayGroups = async () => {
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
@@ -86,21 +91,32 @@ export default function Home() {
     
     if (data && data.length > 0) {
       setTodayGroups(data as any);
-      // 如果 activeGroupId 失效（被刪除了），則切換到第一個
-      if (!activeGroupId || !data.find((g: any) => g.id === activeGroupId)) {
+      
+      // 邏輯：
+      // 1. 如果目前沒有選中任何分頁 (activeGroupId 為空)
+      // 2. 或者目前選中的分頁已經不在新的資料列表中 (代表剛剛被刪除了)
+      // -> 強制切換到第一個分頁
+      const currentGroupStillExists = data.find((g: any) => g.id === activeGroupId);
+      
+      if (!activeGroupId || !currentGroupStillExists) {
         handleSwitchGroup(data[0].id, data[0].store_id);
       } else {
+        // 如果目前分頁還在，就重新整理該分頁的訂單
         fetchOrders(activeGroupId);
       }
     } else {
+      // 如果今天完全沒團了，清空狀態
       setTodayGroups([]);
       setActiveGroupId(null);
+      setOrders([]);
+      setSummary([]);
     }
     setLoading(false);
   };
 
   const handleSwitchGroup = async (groupId: number, storeId: number) => {
     setActiveGroupId(groupId);
+    // 先載入菜單
     const { data: menuData } = await supabase
       .from('products')
       .select('*')
@@ -108,7 +124,10 @@ export default function Home() {
       .order('price', { ascending: true });
     if (menuData) setMenu(menuData);
     
+    // 再載入訂單
     fetchOrders(groupId);
+    
+    // 重置客製化輸入
     setCustomItemName(''); setCustomItemPrice(''); setCustomItemCount(1);
   };
 
@@ -205,13 +224,14 @@ export default function Home() {
       alert('✅ 開團成功！');
       setShowStartGroupModal(false);
       setPreSelectedStoreId(null);
+      // ★ 強制重整，確保 Tabs 立刻出現
       fetchTodayGroups();
     } else {
       alert('開團失敗：' + error.message);
     }
   };
 
-  // ★ 新增：關閉目前群組 (取代原本的 handleResetStore)
+  // ★ 關鍵修正：關閉目前群組
   const handleCloseCurrentGroup = async () => {
     if (!activeGroupId) return;
     const currentGroup = todayGroups.find(g => g.id === activeGroupId);
@@ -230,7 +250,8 @@ export default function Home() {
     if (error) {
       alert('刪除失敗：' + error.message);
     } else {
-      // 成功後，fetchTodayGroups 會自動被觸發並重整畫面
+      // ★ 成功後，手動呼叫 fetchTodayGroups 確保 UI 立刻更新，不要只等 Real-time
+      await fetchTodayGroups();
     }
     setLoading(false);
   };
@@ -327,7 +348,7 @@ export default function Home() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
               </button>
 
-              {/* ★ 修正：將原本的「換一家」改為「關閉此團」 */}
+              {/* 關閉此團按鈕 (避免與回到頂部重疊，調整位置) */}
               <button 
                 onClick={handleCloseCurrentGroup} 
                 className="fixed bottom-28 right-8 z-40 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1"
