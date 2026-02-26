@@ -1,10 +1,11 @@
 import React from 'react';
 
+// ★ 修改：加入 quantity
 type SummaryItem = {
   name: string;
   count: number;
   total: number;
-  orderDetails: { id: number; customer_name: string }[];
+  orderDetails: { id: number; customer_name: string; quantity: number }[];
 };
 
 type Props = {
@@ -17,24 +18,14 @@ type Props = {
 };
 
 export function OrderSummary({ storeName, summary, totalAmount, totalCount, isExpired, onDeleteOrder }: Props) {
-  
   return (
     <>
       <style jsx global>{`
         @media print {
-          @page {
-            margin: 5mm;
-          }
-          body {
-            -webkit-print-color-adjust: exact;
-          }
-          .print-content {
-            zoom: 0.70;
-            width: 100%;
-          }
-          .no-print {
-            display: none;
-          }
+          @page { margin: 5mm; }
+          body { -webkit-print-color-adjust: exact; }
+          .print-content { zoom: 0.70; width: 100%; }
+          .no-print { display: none; }
         }
       `}</style>
 
@@ -49,10 +40,7 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
           </div>
           
           <div className="flex gap-2 print:hidden">
-            <button 
-              onClick={() => window.print()} 
-              className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-md font-bold transition"
-            >
+            <button onClick={() => window.print()} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-md font-bold transition">
               🖨️ 在電腦上列印
             </button>
           </div>
@@ -68,7 +56,6 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
               <thead>
                 <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b border-gray-200 print:bg-gray-100">
                   <th className="p-3 font-semibold">品項</th>
-                  {/* ★ 新增：單價欄位 */}
                   <th className="p-3 text-right font-semibold">單價</th>
                   <th className="p-3 text-center font-semibold">數量</th>
                   <th className="p-3 text-right font-semibold">小計</th>
@@ -79,12 +66,7 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                 {summary.map((row) => (
                   <tr key={row.name} className="hover:bg-blue-50/50 transition break-inside-avoid">
                     <td className="p-3 font-medium text-gray-800">{row.name}</td>
-                    
-                    {/* ★ 新增：計算並顯示單價 (小計 / 數量) */}
-                    <td className="p-3 text-right text-gray-500 font-medium">
-                      ${Math.round((row.total / row.count) * 10) / 10}
-                    </td>
-
+                    <td className="p-3 text-right text-gray-500 font-medium">${Math.round((row.total / row.count) * 10) / 10}</td>
                     <td className="p-3 text-center">
                       <span className="bg-blue-100 text-blue-800 py-1 px-2 rounded font-bold text-xs print:bg-transparent print:text-black print:border print:border-gray-300">{row.count}</span>
                     </td>
@@ -94,10 +76,20 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                         {row.orderDetails.map((detail) => (
                           <span key={detail.id} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-200 print:border-gray-300">
                             {detail.customer_name}
+                            
+                            {/* ★ 如果數量大於 1，顯示 (xN) */}
+                            {detail.quantity > 1 && (
+                              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-1 rounded ml-1">
+                                x{detail.quantity}
+                              </span>
+                            )}
+
                             {!isExpired && (
                               <button 
                                 onClick={() => onDeleteOrder(detail.id, detail.customer_name)}
                                 className="text-red-400 hover:text-red-600 font-bold ml-1 print:hidden"
+                                // ★ 提示使用者會刪除多少
+                                title={`刪除 ${detail.customer_name} 的 ${detail.quantity} 份餐點`}
                               >
                                 ×
                               </button>
@@ -111,7 +103,6 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
               </tbody>
               <tfoot>
                 <tr className="bg-gray-900 text-white font-bold print:bg-gray-200 print:text-black">
-                  {/* ★ 修改：colSpan 改為 2，因為前面多了一欄單價 */}
                   <td className="p-3 rounded-bl-xl" colSpan={2}>總計</td>
                   <td className="p-3 text-center">{totalCount} 份</td>
                   <td className="p-3 text-right text-xl text-yellow-400 print:text-black">
