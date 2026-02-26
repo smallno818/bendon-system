@@ -30,7 +30,7 @@ export default function Home() {
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [inputEndDateTime, setInputEndDateTime] = useState('');
 
-  // ★ 新增：控制「回到頂部」按鈕的顯示狀態
+  // 控制「回到頂部」按鈕的顯示狀態
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   // 初始化與 Real-time 監聽
@@ -42,7 +42,7 @@ export default function Home() {
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
 
-    // ★ 新增：監聽捲動事件
+    // 監聽捲動事件
     const handleScroll = () => {
       if (window.scrollY > 300) {
         setShowScrollTop(true);
@@ -56,15 +56,15 @@ export default function Home() {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(statusChannel);
       clearInterval(timer);
-      window.removeEventListener('scroll', handleScroll); // 清除監聽
+      window.removeEventListener('scroll', handleScroll);
     };
   }, [endTime]);
 
-  // ★ 新增：回到頂部功能
+  // 回到頂部功能
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
-      behavior: 'smooth', // 平滑捲動
+      behavior: 'smooth',
     });
   };
 
@@ -219,7 +219,7 @@ export default function Home() {
             onShowLargeImage={() => setShowLargeImage(true)} 
           />
 
-          {/* ★ 「回到頂部」按鈕 */}
+          {/* 回到頂部按鈕 */}
           <button 
             onClick={scrollToTop}
             className={`fixed bottom-28 right-8 z-40 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
@@ -230,12 +230,28 @@ export default function Home() {
             </svg>
           </button>
 
-          {/* 「換一家」按鈕 (維持原位，但 Scroll Top 會浮在它上面) */}
+          {/* 換一家按鈕 */}
           <button onClick={handleResetStore} className="fixed bottom-8 right-8 z-40 bg-orange-600 text-white px-6 py-4 rounded-2xl shadow-2xl hover:bg-orange-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20">
             <span className="text-xl font-bold">🔄 換一家</span>
           </button>
 
           <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
+            
+            {/* ★ 1. 客製化輸入區塊：移到最上面 (在菜單列表之前) */}
+            <div className={`mb-8 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xl font-bold text-gray-700">✏️ 客製化品項 / 特殊需求</span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：雞腿飯-不要蔥)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-1 border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+                <div className="flex gap-3">
+                  <input type="number" placeholder="金額" value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} disabled={isExpired} className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+                  <button disabled={isExpired} onClick={() => { if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); handleOrder(customItemName, parseInt(customItemPrice)); }} className={`px-6 py-3 rounded-lg font-bold transition ${isExpired ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>下單</button>
+                </div>
+              </div>
+            </div>
+
+            {/* ★ 2. 菜單列表 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
               {menu.map((item) => (
                 <MenuCard 
@@ -249,19 +265,7 @@ export default function Home() {
               ))}
             </div>
 
-            <div className={`mb-12 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xl font-bold text-gray-700">✏️ 客製化品項 / 特殊需求</span>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：雞腿飯-不要蔥)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-1 border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-                <div className="flex gap-3">
-                  <input type="number" placeholder="金額" value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} disabled={isExpired} className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-                  <button disabled={isExpired} onClick={() => { if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); handleOrder(customItemName, parseInt(customItemPrice)); }} className={`px-6 py-3 rounded-lg font-bold transition ${isExpired ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>下單</button>
-                </div>
-              </div>
-            </div>
-
+            {/* ★ 3. 訂單統計 */}
             <OrderSummary 
               storeName={currentStore.name} 
               summary={summary} 
