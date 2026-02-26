@@ -32,6 +32,9 @@ export default function Home() {
   const [showStartGroupModal, setShowStartGroupModal] = useState(false); 
   const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
 
+  // ★ 加回：全域的結單時間輸入 (快速開團用)
+  const [inputEndDateTime, setInputEndDateTime] = useState('');
+
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [customItemCount, setCustomItemCount] = useState(1);
@@ -41,10 +44,8 @@ export default function Home() {
     fetchStores();
     fetchTodayGroups();
     
-    // 監聽群組變化 (開團或刪除團)
     const groupChannel = supabase.channel('realtime_groups')
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => {
-        // 收到變更訊號時，重新抓取列表
         fetchTodayGroups();
       })
       .subscribe();
@@ -69,7 +70,7 @@ export default function Home() {
       clearInterval(timer);
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [activeGroupId]); // 依賴 activeGroupId，確保切換時邏輯正確
+  }, [activeGroupId]);
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -80,7 +81,6 @@ export default function Home() {
     if (data) setStoreList(data);
   };
 
-  // ★ 關鍵修正：優化群組載入與自動切換邏輯
   const fetchTodayGroups = async () => {
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
@@ -92,20 +92,13 @@ export default function Home() {
     if (data && data.length > 0) {
       setTodayGroups(data as any);
       
-      // 邏輯：
-      // 1. 如果目前沒有選中任何分頁 (activeGroupId 為空)
-      // 2. 或者目前選中的分頁已經不在新的資料列表中 (代表剛剛被刪除了)
-      // -> 強制切換到第一個分頁
       const currentGroupStillExists = data.find((g: any) => g.id === activeGroupId);
-      
       if (!activeGroupId || !currentGroupStillExists) {
         handleSwitchGroup(data[0].id, data[0].store_id);
       } else {
-        // 如果目前分頁還在，就重新整理該分頁的訂單
         fetchOrders(activeGroupId);
       }
     } else {
-      // 如果今天完全沒團了，清空狀態
       setTodayGroups([]);
       setActiveGroupId(null);
       setOrders([]);
@@ -116,7 +109,6 @@ export default function Home() {
 
   const handleSwitchGroup = async (groupId: number, storeId: number) => {
     setActiveGroupId(groupId);
-    // 先載入菜單
     const { data: menuData } = await supabase
       .from('products')
       .select('*')
@@ -124,10 +116,7 @@ export default function Home() {
       .order('price', { ascending: true });
     if (menuData) setMenu(menuData);
     
-    // 再載入訂單
     fetchOrders(groupId);
-    
-    // 重置客製化輸入
     setCustomItemName(''); setCustomItemPrice(''); setCustomItemCount(1);
   };
 
@@ -224,14 +213,14 @@ export default function Home() {
       alert('✅ 開團成功！');
       setShowStartGroupModal(false);
       setPreSelectedStoreId(null);
-      // ★ 強制重整，確保 Tabs 立刻出現
+      // 清空快速開團的時間，避免下次誤用
+      setInputEndDateTime('');
       fetchTodayGroups();
     } else {
       alert('開團失敗：' + error.message);
     }
   };
 
-  // ★ 關鍵修正：關閉目前群組
   const handleCloseCurrentGroup = async () => {
     if (!activeGroupId) return;
     const currentGroup = todayGroups.find(g => g.id === activeGroupId);
@@ -240,25 +229,34 @@ export default function Home() {
     if (!window.confirm(`確定要關閉「${currentGroup.store.name}」的團購嗎？\n⚠️ 這會刪除此團的所有訂單，且無法復原！`)) return;
 
     setLoading(true);
-    
-    // 1. 先刪除該團的訂單
     await supabase.from('orders').delete().eq('group_id', activeGroupId);
-    
-    // 2. 再刪除該團的群組紀錄
     const { error } = await supabase.from('daily_groups').delete().eq('id', activeGroupId);
 
     if (error) {
       alert('刪除失敗：' + error.message);
     } else {
-      // ★ 成功後，手動呼叫 fetchTodayGroups 確保 UI 立刻更新，不要只等 Real-time
       await fetchTodayGroups();
     }
     setLoading(false);
   };
 
+  // ★ 修正：點擊卡片的邏輯
   const handleCardClick = (storeId: number) => {
-    setPreSelectedStoreId(storeId);
-    setShowStartGroupModal(true);
+    // 1. 如果有設定「快速開團時間」，直接開團！
+    if (inputEndDateTime) {
+      if (new Date(inputEndDateTime).getTime() <= new Date().getTime()) {
+        return alert('❌ 設定的結單時間已經過了，請選擇未來的時間！');
+      }
+      const storeName = storeList.find(s => s.id === storeId)?.name;
+      if (!window.confirm(`確定要直接發起「${storeName}」的團購嗎？\n結單時間：${new Date(inputEndDateTime).toLocaleString()}`)) return;
+      
+      handleCreateGroup(storeId, inputEndDateTime, ''); // 名稱留空
+    } 
+    // 2. 如果沒設定時間，跳出 Modal 讓使用者慢慢選
+    else {
+      setPreSelectedStoreId(storeId);
+      setShowStartGroupModal(true);
+    }
   };
 
   if (loading) return <div className="p-10 text-center text-gray-500 font-medium">系統載入中...</div>;
@@ -282,9 +280,26 @@ export default function Home() {
 
       {todayGroups.length === 0 ? (
         <div className="max-w-6xl mx-auto p-6">
-          <div className="text-center py-10">
+          <div className="text-center py-6">
             <h1 className="text-4xl font-black text-gray-800 mb-2">🍽️ 今天吃什麼？</h1>
-            <p className="text-gray-500 text-lg">點擊下方卡片，發起今天的第一個團購！</p>
+            <p className="text-gray-500 text-lg">發起今天的第一個團購吧！</p>
+          </div>
+
+          {/* ★ 加回：快速開團設定區塊 */}
+          <div className="flex justify-center mb-10">
+            <div className="bg-blue-50 p-5 rounded-2xl border border-blue-200 shadow-sm flex flex-col items-center gap-3 animate-fadeIn">
+              <label className="text-base font-bold text-blue-800 flex items-center gap-2">
+                <span>⏱️</span>
+                <span>快速開團：請先設定結單時間</span>
+              </label>
+              <input 
+                type="datetime-local" 
+                value={inputEndDateTime} 
+                onChange={e => setInputEndDateTime(e.target.value)} 
+                className="border-2 border-blue-300 p-2 rounded-lg text-xl font-bold text-gray-700 outline-none focus:border-blue-500 bg-white shadow-inner" 
+              />
+              <p className="text-xs text-blue-500 font-medium">✨ 設定後，點擊下方卡片即可直接開團（不用再確認）</p>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -348,7 +363,6 @@ export default function Home() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
               </button>
 
-              {/* 關閉此團按鈕 (避免與回到頂部重疊，調整位置) */}
               <button 
                 onClick={handleCloseCurrentGroup} 
                 className="fixed bottom-28 right-8 z-40 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1"
