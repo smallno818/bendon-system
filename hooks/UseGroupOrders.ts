@@ -16,7 +16,7 @@ export function useGroupOrders() {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
 
-  // Ref 追蹤，解決閉包問題
+  // Ref 用來解決閉包舊值的問題
   const activeGroupIdRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -39,6 +39,7 @@ export function useGroupOrders() {
 
   // --- API 動作：抓取訂單 ---
   const fetchOrders = useCallback(async (groupId: number) => {
+    // console.log('正在更新訂單，群組ID:', groupId);
     const { data } = await supabase
       .from('orders')
       .select('*')
@@ -53,7 +54,6 @@ export function useGroupOrders() {
 
   // --- API 動作：切換群組 ---
   const switchGroup = useCallback(async (groupId: number, storeId: number) => {
-    // console.log('切換群組 -> ID:', groupId);
     setActiveGroupId(groupId);
     
     const { data: menuData } = await supabase
@@ -68,7 +68,6 @@ export function useGroupOrders() {
 
   // --- API 動作：抓取今日開團 ---
   const fetchTodayGroups = useCallback(async () => {
-    // console.log('重抓今日開團列表...');
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
       .from('daily_groups')
@@ -84,31 +83,30 @@ export function useGroupOrders() {
     setLoading(false);
   }, []);
 
-  // --- 關鍵修正：自動導航邏輯 ---
-  // 當 todayGroups 改變時 (例如重抓後發現少了一團)，這裡會決定要跳去哪
+  // --- 監聽資料變化並自動導航 (Auto-Switch Logic) ---
   useEffect(() => {
     if (loading) return;
 
-    // 1. 如果完全沒團 -> 強制清空
+    // 1. 如果完全沒團 -> 清空狀態
     if (todayGroups.length === 0) {
-      if (activeGroupIdRef.current !== null) {
-        setActiveGroupId(null);
-        setOrders([]);
-        setSummary([]);
-      }
+      setActiveGroupId(null);
+      setOrders([]);
+      setSummary([]);
       return;
     }
 
     const currentId = activeGroupIdRef.current;
     const currentGroupStillExists = todayGroups.find(g => g.id === currentId);
 
-    // 2. 如果「目前選中的團」已經不在列表裡了 (被刪除了)
+    // 2. 如果目前選中的團不見了 (被刪除) -> 自動跳轉到第一團
     if (!currentId || !currentGroupStillExists) {
-      // 自動跳轉到剩下的第一團
       const firstGroup = todayGroups[0];
       switchGroup(firstGroup.id, firstGroup.store_id);
     } 
-    // 3. 如果團還在，就乖乖待著，不需要特別做動作 (訂單更新交給 orders channel)
+    // 3. 如果團還在，但資料可能舊了 -> 順手刷新訂單
+    else if (currentId) {
+      // 這裡不強制 fetchOrders，避免過度刷新，由 Real-time 負責即可
+    }
   }, [todayGroups, loading, switchGroup]);
 
 
@@ -152,15 +150,22 @@ export function useGroupOrders() {
     
     const channel = supabase.channel('global_changes')
       
-      // (A) 監聽群組變化：不管新增、修改、刪除，通通重抓列表！
-      // 這樣最穩，不用擔心 payload 格式問題
-      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => {
-        // console.log('收到群組變更，重抓列表！');
-        fetchTodayGroups();
+      // (A) 監聽群組變化
+      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, (payload: any) => {
+        // ★ 關鍵修正：如果是 DELETE 事件，直接在本地狀態把該群組移除，不要等 fetch
+        // 這就是 Optimistic Update (樂觀更新)，讓 UI 瞬間反應
+        if (payload.eventType === 'DELETE' && payload.old.id) {
+          console.log('收到刪除群組訊號，立即移除 ID:', payload.old.id);
+          setTodayGroups((prev) => prev.filter(g => g.id !== payload.old.id));
+        } else {
+          // 如果是 INSERT 或 UPDATE，還是乖乖重抓比較保險
+          fetchTodayGroups();
+        }
       })
       
-      // (B) 監聽訂單變化：重抓目前訂單
+      // (B) 監聽訂單變化
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => {
+        // 當訂單變動時，重抓目前顯示群組的訂單
         if (activeGroupIdRef.current) {
           fetchOrders(activeGroupIdRef.current);
         }
@@ -217,13 +222,16 @@ export function useGroupOrders() {
   const closeGroup = async () => {
     if (!activeGroupId) return;
     
+    // 1. 先刪除訂單
     await supabase.from('orders').delete().eq('group_id', activeGroupId);
+    
+    // 2. 再刪除群組
     const { error } = await supabase.from('daily_groups').delete().eq('id', activeGroupId);
     
     if (error) throw error;
     
-    // 本地先重抓，觸發 UI 更新
-    await fetchTodayGroups();
+    // 3. 本地也立刻執行刪除邏輯，不依賴 Real-time 回傳，確保自己這台最順
+    setTodayGroups((prev) => prev.filter(g => g.id !== activeGroupId));
   };
 
   return {
