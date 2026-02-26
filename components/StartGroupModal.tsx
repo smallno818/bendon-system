@@ -1,24 +1,24 @@
 import React, { useState } from 'react';
 
-// 定義店家型別
 type Store = { id: number; name: string; };
 
 type Props = {
   stores: Store[];
+  initialStoreId?: number | null; // ★ 新增：接收預設店家 ID
   onClose: () => void;
   onSubmit: (storeId: number, endTime: string, groupName: string) => void;
 };
 
-export function StartGroupModal({ stores, onClose, onSubmit }: Props) {
-  const [selectedStoreId, setSelectedStoreId] = useState<number | ''>('');
+export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: Props) {
+  // ★ 如果有傳入 initialStoreId，就直接設定為預設值
+  const [selectedStoreId, setSelectedStoreId] = useState<number | ''>(initialStoreId || '');
   const [endTime, setEndTime] = useState('');
-  const [groupName, setGroupName] = useState(''); // 可選填，例如「研發部午餐」
+  const [groupName, setGroupName] = useState('');
 
   const handleSubmit = () => {
     if (!selectedStoreId) return alert('請選擇店家！');
     if (!endTime) return alert('請設定結單時間！');
     
-    // 簡單的防呆：檢查時間是否已過
     if (new Date(endTime).getTime() <= new Date().getTime()) {
       return alert('結單時間不能是過去喔！');
     }
@@ -30,16 +30,13 @@ export function StartGroupModal({ stores, onClose, onSubmit }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scaleIn">
         
-        {/* Header */}
         <div className="bg-indigo-600 p-6 text-white text-center">
           <h2 className="text-2xl font-bold">🎉 發起新團購</h2>
           <p className="text-indigo-200 text-sm mt-1">想吃什麼自己開！</p>
         </div>
 
-        {/* Body */}
         <div className="p-6 space-y-5">
           
-          {/* 1. 選擇店家 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">1. 選擇店家</label>
             <select 
@@ -56,7 +53,6 @@ export function StartGroupModal({ stores, onClose, onSubmit }: Props) {
             </select>
           </div>
 
-          {/* 2. 結單時間 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">2. 結單時間</label>
             <input 
@@ -67,7 +63,6 @@ export function StartGroupModal({ stores, onClose, onSubmit }: Props) {
             />
           </div>
 
-          {/* 3. 團購名稱 (選填) */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">3. 團購名稱 (選填)</label>
             <input 
@@ -81,7 +76,6 @@ export function StartGroupModal({ stores, onClose, onSubmit }: Props) {
 
         </div>
 
-        {/* Footer */}
         <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3">
           <button 
             onClick={onClose}

@@ -3,24 +3,23 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // 引入元件
+import { StoreCard } from '@/components/StoreCard'; // ★ 記得要把 StoreCard 引回來
 import { StoreBanner } from '@/components/StoreBanner';
 import { MenuCard } from '@/components/MenuCard';
 import { OrderSummary } from '@/components/OrderSummary';
-import { StartGroupModal } from '@/components/StartGroupModal'; // ★ 新增引用
+import { StartGroupModal } from '@/components/StartGroupModal';
 
 // 型別定義
 type Store = { id: number; name: string; image_url: string | null; phone: string | null; };
 type Product = { id: number; store_id: number; name: string; price: number; description: string | null; };
 type Order = { id: number; item_name: string; price: number; customer_name: string; quantity: number; group_id: number; };
 type SummaryItem = { name: string; count: number; total: number; orderDetails: { id: number; customer_name: string; quantity: number }[]; };
-// ★ 修改 Group 定義，加入 name (團購名稱)
 type Group = { id: number; store_id: number; end_time: string; name: string | null; store: Store };
 
 export default function Home() {
-  // 資料狀態
   const [todayGroups, setTodayGroups] = useState<Group[]>([]);
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
-  const [storeList, setStoreList] = useState<Store[]>([]); // ★ 儲存所有店家清單
+  const [storeList, setStoreList] = useState<Store[]>([]); 
   
   const [menu, setMenu] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -30,24 +29,23 @@ export default function Home() {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
   const [showLargeImage, setShowLargeImage] = useState(false);
-  const [showStartGroupModal, setShowStartGroupModal] = useState(false); // ★ 控制開團 Modal
+  const [showStartGroupModal, setShowStartGroupModal] = useState(false); 
+  // ★ 新增：紀錄點擊卡片時的店家 ID，用來傳給 Modal
+  const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
 
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [customItemCount, setCustomItemCount] = useState(1);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  // 初始化與監聽
   useEffect(() => {
-    fetchStores(); // ★ 先抓店家清單，開團要用
+    fetchStores();
     fetchTodayGroups();
     
-    // 監聽群組變化
     const groupChannel = supabase.channel('realtime_groups')
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => fetchTodayGroups())
       .subscribe();
 
-    // 監聽訂單變化
     const ordersChannel = supabase.channel('realtime_orders')
       .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => {
         if (activeGroupId) fetchOrders(activeGroupId);
@@ -74,13 +72,11 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // 0. 抓取所有店家 (給開團選單用)
   const fetchStores = async () => {
     const { data } = await supabase.from('stores').select('*').order('id');
     if (data) setStoreList(data);
   };
 
-  // 1. 抓取今日所有開團
   const fetchTodayGroups = async () => {
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
@@ -91,7 +87,6 @@ export default function Home() {
     
     if (data && data.length > 0) {
       setTodayGroups(data as any);
-      // 如果目前沒有選中任何分頁，或選中的分頁不見了，預設選第一個
       if (!activeGroupId || !data.find((g: any) => g.id === activeGroupId)) {
         handleSwitchGroup(data[0].id, data[0].store_id);
       } else {
@@ -104,7 +99,6 @@ export default function Home() {
     setLoading(false);
   };
 
-  // 2. 切換分頁
   const handleSwitchGroup = async (groupId: number, storeId: number) => {
     setActiveGroupId(groupId);
     const { data: menuData } = await supabase
@@ -118,7 +112,6 @@ export default function Home() {
     setCustomItemName(''); setCustomItemPrice(''); setCustomItemCount(1);
   };
 
-  // 3. 抓取訂單
   const fetchOrders = async (groupId: number) => {
     const { data } = await supabase
       .from('orders')
@@ -197,7 +190,6 @@ export default function Home() {
     } else if (confirmName !== null) alert('名字輸入不正確，刪除失敗。');
   };
 
-  // ★ 新增：處理開團邏輯
   const handleCreateGroup = async (storeId: number, endTime: string, groupName: string) => {
     const todayStr = new Date().toISOString().split('T')[0];
     const fullEndDateTime = new Date(endTime).toISOString();
@@ -206,21 +198,27 @@ export default function Home() {
       order_date: todayStr,
       store_id: storeId,
       end_time: fullEndDateTime,
-      name: groupName || null // 如果沒填名稱就存 null
+      name: groupName || null
     }]);
 
     if (!error) {
       alert('✅ 開團成功！');
       setShowStartGroupModal(false);
+      setPreSelectedStoreId(null); // 清除預選
       fetchTodayGroups();
     } else {
       alert('開團失敗：' + error.message);
     }
   };
 
+  // ★ 處理點擊卡片：設定預選店家 -> 打開 Modal
+  const handleCardClick = (storeId: number) => {
+    setPreSelectedStoreId(storeId);
+    setShowStartGroupModal(true);
+  };
+
   if (loading) return <div className="p-10 text-center text-gray-500 font-medium">系統載入中...</div>;
 
-  // 取得當前選中的 Group 物件
   const activeGroupData = todayGroups.find(g => g.id === activeGroupId);
 
   return (
@@ -230,29 +228,41 @@ export default function Home() {
       {showStartGroupModal && (
         <StartGroupModal 
           stores={storeList} 
-          onClose={() => setShowStartGroupModal(false)} 
+          initialStoreId={preSelectedStoreId} // ★ 傳入預選 ID
+          onClose={() => {
+            setShowStartGroupModal(false);
+            setPreSelectedStoreId(null);
+          }} 
           onSubmit={handleCreateGroup} 
         />
       )}
 
-      {/* 狀況一：今天完全沒團，顯示大大的開團按鈕 */}
+      {/* 狀況一：今天還沒開團
+         -> 顯示「請選擇店家開團」標題
+         -> 下方列出所有店家卡片
+      */}
       {todayGroups.length === 0 ? (
-        <div className="max-w-4xl mx-auto p-10 text-center mt-10">
-          <div className="bg-white p-16 rounded-3xl shadow-xl border border-indigo-50 flex flex-col items-center">
-            <div className="text-6xl mb-6">🍽️</div>
-            <h1 className="text-4xl font-black text-gray-800 mb-4 tracking-tight">今天還沒開團喔</h1>
-            <p className="text-gray-500 text-lg mb-8 font-medium">肚子餓了嗎？快當第一個發起團購的人！</p>
-            <button 
-              onClick={() => setShowStartGroupModal(true)}
-              className="px-10 py-5 bg-indigo-600 text-white text-xl font-bold rounded-2xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 transition-all active:scale-95 flex items-center gap-3"
-            >
-              <span>🚀</span>
-              <span>發起第一個團購</span>
-            </button>
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="text-center py-10">
+            <h1 className="text-4xl font-black text-gray-800 mb-2">🍽️ 今天吃什麼？</h1>
+            <p className="text-gray-500 text-lg">點擊下方卡片，發起今天的第一個團購！</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {storeList.map(store => (
+              <StoreCard 
+                key={store.id} 
+                name={store.name} 
+                imageUrl={store.image_url} 
+                phone={store.phone} 
+                // ★ 這裡改成開啟開團 Modal
+                onSelect={() => handleCardClick(store.id)} 
+              />
+            ))}
           </div>
         </div>
       ) : (
-        // 狀況二：有團購，顯示 Tabs
+        // 狀況二：已經有開團 -> 顯示 Tabs 介面
         <>
           <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
             <div className="max-w-5xl mx-auto px-4 flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide">
@@ -275,7 +285,6 @@ export default function Home() {
                 </button>
               ))}
 
-              {/* ★ 在 Tabs 旁邊顯示一個小的 + 按鈕 */}
               <button
                 onClick={() => setShowStartGroupModal(true)}
                 className="ml-2 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all font-bold text-xl"
@@ -304,7 +313,6 @@ export default function Home() {
 
               <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
                 
-                {/* 客製化輸入區塊 */}
                 <div className={`mb-8 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xl font-bold text-gray-700">✏️ 客製化 / 隱藏版 ({activeGroupData.store.name})</span>
@@ -323,14 +331,12 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* 菜單列表 */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
                   {menu.map((item) => (
                     <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} isExpired={isExpired} onOrder={(count: number) => handleOrder(item.name, item.price, count)} />
                   ))}
                 </div>
 
-                {/* 訂單統計 */}
                 <OrderSummary 
                   storeName={activeGroupData.store.name} 
                   summary={summary} 
