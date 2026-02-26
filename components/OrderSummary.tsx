@@ -20,27 +20,24 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
   
   return (
     <>
-      {/* ★ 新增列印專用樣式：強制縮放與縮減邊界 */}
       <style jsx global>{`
         @media print {
           @page {
-            margin: 5mm; /* 將紙張邊距縮小到 5mm */
+            margin: 5mm;
           }
           body {
             -webkit-print-color-adjust: exact;
           }
           .print-content {
-            zoom: 0.70; /* ★ 關鍵：將內容縮小為 70% */
+            zoom: 0.70;
             width: 100%;
           }
-          /* 隱藏瀏覽器預設的頁首頁尾 (視瀏覽器支援度) */
           .no-print {
             display: none;
           }
         }
       `}</style>
 
-      {/* 在外層加上 print-content class */}
       <div className="print-content bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-10">
         <div className="flex justify-between items-center mb-6">
           <div className="flex flex-col">
@@ -67,11 +64,12 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
           </div>
         ) : (
           <div className="overflow-x-auto">
-            {/* 增加 print:text-sm 強制列印時字體變小 */}
             <table className="w-full text-left border-collapse print:text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b border-gray-200 print:bg-gray-100">
                   <th className="p-3 font-semibold">品項</th>
+                  {/* ★ 新增：單價欄位 */}
+                  <th className="p-3 text-right font-semibold">單價</th>
                   <th className="p-3 text-center font-semibold">數量</th>
                   <th className="p-3 text-right font-semibold">小計</th>
                   <th className="p-3 font-semibold w-1/3">訂購人</th>
@@ -81,6 +79,12 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                 {summary.map((row) => (
                   <tr key={row.name} className="hover:bg-blue-50/50 transition break-inside-avoid">
                     <td className="p-3 font-medium text-gray-800">{row.name}</td>
+                    
+                    {/* ★ 新增：計算並顯示單價 (小計 / 數量) */}
+                    <td className="p-3 text-right text-gray-500 font-medium">
+                      ${Math.round((row.total / row.count) * 10) / 10}
+                    </td>
+
                     <td className="p-3 text-center">
                       <span className="bg-blue-100 text-blue-800 py-1 px-2 rounded font-bold text-xs print:bg-transparent print:text-black print:border print:border-gray-300">{row.count}</span>
                     </td>
@@ -107,7 +111,8 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
               </tbody>
               <tfoot>
                 <tr className="bg-gray-900 text-white font-bold print:bg-gray-200 print:text-black">
-                  <td className="p-3 rounded-bl-xl">總計</td>
+                  {/* ★ 修改：colSpan 改為 2，因為前面多了一欄單價 */}
+                  <td className="p-3 rounded-bl-xl" colSpan={2}>總計</td>
                   <td className="p-3 text-center">{totalCount} 份</td>
                   <td className="p-3 text-right text-xl text-yellow-400 print:text-black">
                     ${totalAmount}
