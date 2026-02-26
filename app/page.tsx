@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// 引入元件 (保持你原本的元件化架構)
+// 引入元件
 import { StoreCard } from '@/components/StoreCard';
 import { StoreBanner } from '@/components/StoreBanner';
 import { MenuCard } from '@/components/MenuCard';
@@ -35,9 +35,8 @@ export default function Home() {
     checkDailyStatus();
     const ordersChannel = supabase.channel('realtime_orders').on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => fetchTodayOrders()).subscribe();
     const statusChannel = supabase.channel('realtime_status').on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_status' }, () => checkDailyStatus()).subscribe();
-
-    // ★ 修正重點：當 endTime 改變時，立刻執行一次檢查，不要等 setInterval 的 1 秒
-    updateCountdown(); 
+    
+    updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
 
     return () => {
@@ -45,23 +44,16 @@ export default function Home() {
       supabase.removeChannel(statusChannel);
       clearInterval(timer);
     };
-  }, [endTime]); // 只要 endTime 變了，這裡就會重跑，並立即執行 updateCountdown
+  }, [endTime]);
 
   // 倒數計時邏輯
   const updateCountdown = () => {
-    if (!endTime) { 
-      setTimeLeft(''); 
-      setIsExpired(false); // ★ 確保如果沒設定時間，狀態是「未過期」
-      return; 
-    }
+    if (!endTime) { setTimeLeft(''); setIsExpired(false); return; }
     const now = new Date().getTime();
     const end = new Date(endTime).getTime();
     const diff = end - now;
-    
-    if (diff <= 0) { 
-      setIsExpired(true); 
-      setTimeLeft('🔴 已結單'); 
-    } else {
+    if (diff <= 0) { setIsExpired(true); setTimeLeft('🔴 已結單'); }
+    else {
       setIsExpired(false);
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -77,15 +69,13 @@ export default function Home() {
   const checkDailyStatus = async () => {
     const today = new Date().toISOString().split('T')[0];
     const { data: statusData } = await supabase.from('daily_status').select('*').eq('order_date', today).order('id', { ascending: false }).limit(1).maybeSingle();
-    
     if (statusData?.active_store_id) {
-      // 這裡順序很重要：先設定時間，讓 useEffect 觸發並計算是否過期
       setEndTime(statusData.end_time);
       await loadStoreData(statusData.active_store_id);
     } else {
       setCurrentStore(null);
       setEndTime(null);
-      setIsExpired(false); // ★ 重置時強制設定為未過期
+      setIsExpired(false);
       const { data: stores } = await supabase.from('stores').select('*');
       if (stores) setStoreList(stores);
     }
@@ -95,7 +85,14 @@ export default function Home() {
   const loadStoreData = async (storeId: number) => {
     const { data: store } = await supabase.from('stores').select('*').eq('id', storeId).single();
     setCurrentStore(store);
-    const { data: menuData } = await supabase.from('products').select('*').eq('store_id', storeId);
+    
+    // ★ 修改處：加入 .order('price', { ascending: true }) 讓菜單依價格排序
+    const { data: menuData } = await supabase
+      .from('products')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('price', { ascending: true });
+
     if (menuData) setMenu(menuData);
     fetchTodayOrders();
   };
@@ -106,16 +103,13 @@ export default function Home() {
     const todayStr = new Date().toISOString().split('T')[0];
     const fullEndDateTime = new Date(inputEndDateTime).toISOString();
     
-    // 防呆：如果使用者選的時間已經過了，直接擋下來
     if (new Date(fullEndDateTime).getTime() <= new Date().getTime()) {
       return alert('❌ 設定的結單時間已經過了，請選擇未來的時間！');
     }
 
     if (!window.confirm(`將設定於 ${new Date(inputEndDateTime).toLocaleString()} 結單，確定嗎？`)) return;
     
-    // ★ 樂觀更新：先在本地重置過期狀態，讓使用者感覺反應很快
     setIsExpired(false); 
-    
     await supabase.from('daily_status').delete().eq('order_date', todayStr);
     const { error } = await supabase.from('daily_status').insert([{ active_store_id: storeId, order_date: todayStr, end_time: fullEndDateTime }]);
     if (!error) checkDailyStatus();
@@ -126,11 +120,9 @@ export default function Home() {
     const today = new Date().toISOString().split('T')[0];
     await supabase.from('orders').delete().gte('created_at', `${today}T00:00:00`);
     await supabase.from('daily_status').delete().eq('order_date', today);
-    
-    // ★ 清除狀態時，務必將過期狀態重置
     setCurrentStore(null);
     setEndTime(null);
-    setIsExpired(false); 
+    setIsExpired(false);
     checkDailyStatus();
   };
 
@@ -152,10 +144,9 @@ export default function Home() {
   };
 
   const handleOrder = async (itemName: string, itemPrice: number) => {
-    // 再次檢查時間，防止有人停在頁面很久突然按
     const isNowExpired = endTime && new Date(endTime).getTime() <= new Date().getTime();
     if (isExpired || isNowExpired) {
-       setIsExpired(true); // 確保狀態同步
+       setIsExpired(true);
        return alert('🔴 抱歉，已經超過結單時間，無法再點餐！');
     }
 

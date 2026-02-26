@@ -8,46 +8,39 @@ import { AdminHeader } from '@/components/admin/AdminHeader';
 import { StoreForm } from '@/components/admin/StoreForm';
 import { StoreCard } from '@/components/admin/StoreCard';
 import { EditMenuModal } from '@/components/admin/EditMenuModal';
-import { LoginPage } from '@/components/admin/LoginPage'; // ★ 新增：引入登入頁
+import { LoginPage } from '@/components/admin/LoginPage';
 
 // 型別定義
 type Store = { id: number; name: string; image_url: string | null; phone: string | null; };
-type Product = { id: number; store_id: number; name: string; price: number; };
+// ★ 更新 Product 型別
+type Product = { id: number; store_id: number; name: string; price: number; description: string | null; };
 
 export default function AdminPage() {
-  // --- 權限狀態 ---
   const [session, setSession] = useState<any>(null);
   const [authChecking, setAuthChecking] = useState(true);
 
-  // --- 資料狀態 ---
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // 新增店家相關
   const [newStoreName, setNewStoreName] = useState('');
   const [newStorePhone, setNewStorePhone] = useState(''); 
   const [newStoreImage, setNewStoreImage] = useState(''); 
   const [uploading, setUploading] = useState(false);
   
-  // 編輯菜單相關
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [menuItems, setMenuItems] = useState<Product[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
+  const [newItemDescription, setNewItemDescription] = useState(''); // ★ 新增備註狀態
 
-  // --- 初始化：檢查登入狀態 ---
   useEffect(() => {
-    // 1. 取得目前的 Session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthChecking(false);
-      if (session) fetchStores(); // 如果已登入，直接抓資料
+      if (session) fetchStores();
     });
 
-    // 2. 監聽登入/登出狀態改變
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) fetchStores();
     });
@@ -55,13 +48,10 @@ export default function AdminPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // --- 登出邏輯 ---
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
   };
-
-  // --- 既有的邏輯函數區 (保持不變) ---
 
   const fetchStores = async () => {
     setLoading(true);
@@ -137,10 +127,20 @@ export default function AdminPage() {
 
   const handleAddSingleItem = async () => {
     if (!newItemName || !newItemPrice || !editingStore) return;
+    // ★ 插入時包含 description
     const { error } = await supabase.from('products').insert([{ 
-      store_id: editingStore.id, name: newItemName, price: parseInt(newItemPrice) 
+      store_id: editingStore.id, 
+      name: newItemName, 
+      price: parseInt(newItemPrice),
+      description: newItemDescription.trim() || null // ★
     }]);
-    if (!error) { setNewItemName(''); setNewItemPrice(''); fetchMenu(editingStore.id); }
+    
+    if (!error) {
+      setNewItemName(''); 
+      setNewItemPrice(''); 
+      setNewItemDescription(''); // ★ 清空
+      fetchMenu(editingStore.id);
+    }
   };
 
   const handleDeleteItem = async (itemId: number) => {
@@ -161,7 +161,12 @@ export default function AdminPage() {
       const productsToUpsert: any[] = [];
       rawData.forEach((row) => {
         if (row[0] && row[1]) {
-          productsToUpsert.push({ store_id: editingStore.id, name: row[0], price: parseInt(row[1]) });
+          productsToUpsert.push({ 
+            store_id: editingStore.id, 
+            name: row[0], 
+            price: parseInt(row[1]),
+            description: row[2] ? String(row[2]) : null // ★ 嘗試讀取 Excel 第三欄作為備註
+          });
         }
       });
       const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'store_id, name' });
@@ -171,23 +176,12 @@ export default function AdminPage() {
     reader.readAsBinaryString(file);
   };
 
-  // --- ★ 權限判斷區塊 ---
+  if (authChecking) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold">系統驗證中...</div>;
+  if (!session) return <LoginPage />;
 
-  // 1. 如果還在檢查 Session，顯示載入中 (避免畫面閃爍)
-  if (authChecking) {
-    return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold">系統驗證中...</div>;
-  }
-
-  // 2. 如果沒有 Session，顯示登入頁面
-  if (!session) {
-    return <LoginPage />;
-  }
-
-  // 3. 有 Session，顯示原本的後台介面
   return (
     <div className="min-h-screen bg-slate-50 p-8 text-slate-900 font-sans">
       <div className="max-w-5xl mx-auto">
-        {/* 把 Logout 函數傳給 Header */}
         <AdminHeader onLogout={handleLogout} />
 
         <StoreForm 
@@ -221,10 +215,12 @@ export default function AdminPage() {
           menuItems={menuItems}
           newItemName={newItemName}
           newItemPrice={newItemPrice}
+          newItemDescription={newItemDescription} // ★
           onClose={() => setEditingStore(null)}
           onExcelUpload={handleExcelUpload}
           onNameChange={setNewItemName}
           onPriceChange={setNewItemPrice}
+          onDescriptionChange={setNewItemDescription} // ★
           onAddItem={handleAddSingleItem}
           onDeleteItem={handleDeleteItem}
         />
