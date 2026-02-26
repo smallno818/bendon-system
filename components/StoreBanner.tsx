@@ -24,14 +24,15 @@ export function StoreBanner({ name, imageUrl, phone, timeLeft, endTime, isExpire
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white">
         <h1 className="text-4xl font-bold drop-shadow-lg mb-2">{name}</h1>
         
-        {/* 倒數計時顯示 */}
-        <div className={`px-4 py-1 rounded-full text-sm font-bold shadow-lg backdrop-blur-md ${isExpired ? 'bg-red-600/90' : 'bg-yellow-500/90 text-yellow-900 animate-pulse'}`}>
+        {/* 倒數計時顯示：已移除 animate-pulse (不閃爍)，並稍微加大內距 */}
+        <div className={`px-6 py-2 rounded-full text-base font-bold shadow-lg backdrop-blur-md transition-colors ${isExpired ? 'bg-red-600/90' : 'bg-yellow-500/90 text-yellow-900'}`}>
           {timeLeft || '計算中...'}
         </div>
         
+        {/* 結單時間：字體放大 (text-base)，增加黑色背景襯托 */}
         {endTime && (
-          <p className="text-xs mt-1 opacity-80 bg-black/20 px-2 rounded">
-            結單時間：{new Date(endTime).toLocaleString()}
+          <p className="text-base font-medium mt-2 text-white drop-shadow-md bg-black/40 px-3 py-1 rounded-lg border border-white/20">
+            結單時間：{new Date(endTime).toLocaleString([], { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
           </p>
         )}
 
