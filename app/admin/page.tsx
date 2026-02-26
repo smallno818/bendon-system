@@ -3,18 +3,23 @@ import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
 
-// 引入拆分出去的 UI 元件
+// 引入 UI 元件
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { StoreForm } from '@/components/admin/StoreForm';
 import { StoreCard } from '@/components/admin/StoreCard';
 import { EditMenuModal } from '@/components/admin/EditMenuModal';
+import { LoginPage } from '@/components/admin/LoginPage'; // ★ 新增：引入登入頁
 
 // 型別定義
 type Store = { id: number; name: string; image_url: string | null; phone: string | null; };
 type Product = { id: number; store_id: number; name: string; price: number; };
 
 export default function AdminPage() {
-  // --- 狀態管理區 ---
+  // --- 權限狀態 ---
+  const [session, setSession] = useState<any>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
+  // --- 資料狀態 ---
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -30,14 +35,34 @@ export default function AdminPage() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
 
-  // --- 初始化 ---
+  // --- 初始化：檢查登入狀態 ---
   useEffect(() => {
-    fetchStores();
+    // 1. 取得目前的 Session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthChecking(false);
+      if (session) fetchStores(); // 如果已登入，直接抓資料
+    });
+
+    // 2. 監聽登入/登出狀態改變
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) fetchStores();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // --- 邏輯函數區 ---
+  // --- 登出邏輯 ---
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+  };
 
-  // 1. 取得店家列表
+  // --- 既有的邏輯函數區 (保持不變) ---
+
   const fetchStores = async () => {
     setLoading(true);
     const { data } = await supabase.from('stores').select('*').order('id', { ascending: true });
@@ -45,7 +70,6 @@ export default function AdminPage() {
     setLoading(false);
   };
 
-  // 2. 上傳店家圖片
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; 
@@ -56,36 +80,26 @@ export default function AdminPage() {
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('stores_picture') 
-      .upload(filePath, file);
+    const { error: uploadError } = await supabase.storage.from('stores_picture').upload(filePath, file);
 
     if (uploadError) {
       alert('圖片上傳失敗: ' + uploadError.message);
       setUploading(false);
       return;
     }
-
     const { data } = supabase.storage.from('stores_picture').getPublicUrl(filePath);
     setNewStoreImage(data.publicUrl);
     setUploading(false);
   };
 
-  // 3. 新增或更新店家
   const handleAddStore = async () => {
     if (!newStoreName.trim()) return alert('請輸入店名');
-    
-    // 檢查是否存在
     const { data: existingStore } = await supabase.from('stores').select('*').eq('name', newStoreName.trim()).single();
-    
-    // 決定要存入的電話和圖片 (有輸入用新的，沒輸入用舊的，都沒有用 null)
     const finalPhone = newStorePhone.trim() !== '' ? newStorePhone : (existingStore ? existingStore.phone : null);
     const finalImageUrl = newStoreImage !== '' ? newStoreImage : (existingStore ? existingStore.image_url : null);
 
     const { error } = await supabase.from('stores').upsert([{ 
-      name: newStoreName.trim(), 
-      image_url: finalImageUrl,
-      phone: finalPhone
+      name: newStoreName.trim(), image_url: finalImageUrl, phone: finalPhone
     }], { onConflict: 'name' });
 
     if (!error) {
@@ -97,10 +111,8 @@ export default function AdminPage() {
     }
   };
 
-  // 4. 刪除店家
   const handleDeleteStore = async (id: number, name: string, imageUrl: string | null) => {
-    const confirm = window.confirm(`確定要刪除「${name}」嗎？`);
-    if (!confirm) return;
+    if (!window.confirm(`確定要刪除「${name}」嗎？`)) return;
     try {
       await supabase.from('products').delete().eq('store_id', id);
       await supabase.from('daily_status').delete().eq('active_store_id', id);
@@ -113,79 +125,70 @@ export default function AdminPage() {
     } catch (e) { alert('刪除失敗'); }
   };
 
-  // 5. 開啟編輯視窗
   const openEditModal = async (store: Store) => {
     setEditingStore(store);
     fetchMenu(store.id);
   };
 
-  // 6. 取得菜單
   const fetchMenu = async (storeId: number) => {
     const { data } = await supabase.from('products').select('*').eq('store_id', storeId).order('id', { ascending: true });
     if (data) setMenuItems(data);
   };
 
-  // 7. 新增單一品項
   const handleAddSingleItem = async () => {
     if (!newItemName || !newItemPrice || !editingStore) return;
     const { error } = await supabase.from('products').insert([{ 
-      store_id: editingStore.id, 
-      name: newItemName, 
-      price: parseInt(newItemPrice) 
+      store_id: editingStore.id, name: newItemName, price: parseInt(newItemPrice) 
     }]);
-    
-    if (!error) {
-      setNewItemName(''); 
-      setNewItemPrice(''); 
-      fetchMenu(editingStore.id);
-    }
+    if (!error) { setNewItemName(''); setNewItemPrice(''); fetchMenu(editingStore.id); }
   };
 
-  // 8. 刪除單一品項
   const handleDeleteItem = async (itemId: number) => {
     if (!editingStore) return;
     const { error } = await supabase.from('products').delete().eq('id', itemId);
     if (!error) fetchMenu(editingStore.id);
   };
 
-  // 9. Excel 匯入
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !editingStore) return;
-    
     const reader = new FileReader();
     reader.onload = async (evt) => {
       const bstr = evt.target?.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const rawData: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
       const productsToUpsert: any[] = [];
-      
       rawData.forEach((row) => {
         if (row[0] && row[1]) {
-          productsToUpsert.push({ 
-            store_id: editingStore.id, 
-            name: row[0], 
-            price: parseInt(row[1]) 
-          });
+          productsToUpsert.push({ store_id: editingStore.id, name: row[0], price: parseInt(row[1]) });
         }
       });
-      
       const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'store_id, name' });
       if (error) alert('匯入失敗:' + error.message);
-      else {
-        alert('✅ 匯入成功');
-        fetchMenu(editingStore.id);
-      }
+      else { alert('✅ 匯入成功'); fetchMenu(editingStore.id); }
     };
     reader.readAsBinaryString(file);
   };
 
-  // --- 畫面渲染區 ---
+  // --- ★ 權限判斷區塊 ---
+
+  // 1. 如果還在檢查 Session，顯示載入中 (避免畫面閃爍)
+  if (authChecking) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold">系統驗證中...</div>;
+  }
+
+  // 2. 如果沒有 Session，顯示登入頁面
+  if (!session) {
+    return <LoginPage />;
+  }
+
+  // 3. 有 Session，顯示原本的後台介面
   return (
     <div className="min-h-screen bg-slate-50 p-8 text-slate-900 font-sans">
       <div className="max-w-5xl mx-auto">
-        <AdminHeader />
+        {/* 把 Logout 函數傳給 Header */}
+        <AdminHeader onLogout={handleLogout} />
 
         <StoreForm 
           name={newStoreName}
