@@ -129,7 +129,8 @@ export default function AdminPage() {
     const { error } = await supabase.from('products').insert([{ 
       store_id: editingStore.id, 
       name: newItemName, 
-      price: parseInt(newItemPrice),
+      // ★ 改為 parseFloat (支援小數點)
+      price: parseFloat(newItemPrice),
       description: newItemDescription.trim() || null 
     }]);
     
@@ -141,23 +142,17 @@ export default function AdminPage() {
     }
   };
 
-  // ★ 新增：即時更新品項 (價格或備註)
   const handleUpdateItem = async (id: number, field: 'price' | 'description', value: string | number) => {
     if (!editingStore) return;
     
-    // 如果是價格且不是數字，或是空值，則忽略
     if (field === 'price' && isNaN(Number(value))) return;
 
-    // 呼叫 Supabase 更新
     const { error } = await supabase
       .from('products')
       .update({ [field]: value })
       .eq('id', id);
 
     if (!error) {
-      // 成功後重新整理清單，確保畫面與資料庫同步
-      // (也可以選擇不重整，直接改本地 state，看你喜歡哪種)
-      // 這裡選擇重新整理比較保險
       fetchMenu(editingStore.id);
     } else {
       alert('更新失敗: ' + error.message);
@@ -185,7 +180,8 @@ export default function AdminPage() {
           productsToUpsert.push({ 
             store_id: editingStore.id, 
             name: row[0], 
-            price: parseInt(row[1]),
+            // ★ 改為 parseFloat (支援小數點)
+            price: parseFloat(row[1]),
             description: row[2] ? String(row[2]) : null 
           });
         }
@@ -244,7 +240,7 @@ export default function AdminPage() {
           onDescriptionChange={setNewItemDescription} 
           onAddItem={handleAddSingleItem}
           onDeleteItem={handleDeleteItem}
-          onUpdateItem={handleUpdateItem} // ★ 傳入更新函數
+          onUpdateItem={handleUpdateItem} 
         />
       )}
     </div>

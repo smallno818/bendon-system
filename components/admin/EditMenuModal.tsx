@@ -20,7 +20,6 @@ type Props = {
   onDescriptionChange: (val: string) => void;
   onAddItem: () => void;
   onDeleteItem: (id: number) => void;
-  // ★ 新增更新用的函數
   onUpdateItem: (id: number, field: 'price' | 'description', value: string | number) => void;
 };
 
@@ -37,7 +36,7 @@ export function EditMenuModal({
   onDescriptionChange,
   onAddItem,
   onDeleteItem,
-  onUpdateItem // ★
+  onUpdateItem
 }: Props) {
   return (
     <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-6 z-50 backdrop-blur-md">
@@ -80,9 +79,11 @@ export function EditMenuModal({
                 onChange={(e) => onDescriptionChange(e.target.value)} 
                 className="flex-[2] h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium" 
               />
+              {/* ★ 新增 step="0.1" 允許小數點 */}
               <input 
                 placeholder="價格" 
                 type="number" 
+                step="0.1" 
                 value={newItemPrice} 
                 onChange={(e) => onPriceChange(e.target.value)} 
                 className="w-24 h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-600" 
@@ -102,7 +103,7 @@ export function EditMenuModal({
               <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                 <tr>
                   <th className="p-4">Item Name</th>
-                  <th className="p-4">Note (Click to Edit)</th> {/* ★ 提示可編輯 */}
+                  <th className="p-4">Note (Click to Edit)</th>
                   <th className="p-4 w-28">Price</th>
                   <th className="p-4 w-12"></th>
                 </tr>
@@ -112,7 +113,6 @@ export function EditMenuModal({
                   <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-bold text-slate-700">{item.name}</td>
                     
-                    {/* ★ 備註欄位：改成 Input */}
                     <td className="p-4">
                       <input 
                         type="text"
@@ -123,12 +123,13 @@ export function EditMenuModal({
                       />
                     </td>
 
-                    {/* ★ 價格欄位：改成 Input */}
                     <td className="p-4">
+                      {/* ★ 修改價格欄位：加入 step="0.1" 且使用 parseFloat 處理 */}
                       <input 
                         type="number"
+                        step="0.1"
                         defaultValue={item.price}
-                        onBlur={(e) => onUpdateItem(item.id, 'price', parseInt(e.target.value))}
+                        onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))}
                         className="w-full font-black text-indigo-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-colors"
                       />
                     </td>

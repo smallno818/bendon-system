@@ -154,12 +154,18 @@ export default function Home() {
     if (data) { setOrders(data); calculateSummary(data); }
   };
 
+  // ★ 修改：增加數值保護，防止浮點數誤差 (例如 12.1 + 12.2 = 24.3000004)
   const calculateSummary = (ordersData: Order[]) => {
     const stats: Record<string, SummaryItem> = {};
     ordersData.forEach(order => {
       if (!stats[order.item_name]) stats[order.item_name] = { name: order.item_name, count: 0, total: 0, orderDetails: [] };
       stats[order.item_name].count += 1;
-      stats[order.item_name].total += order.price;
+      
+      // 累加金額
+      let newTotal = stats[order.item_name].total + order.price;
+      // 強制修正：乘以10 -> 四捨五入 -> 除以10 (保留一位小數)
+      stats[order.item_name].total = Math.round(newTotal * 10) / 10;
+      
       stats[order.item_name].orderDetails.push({ id: order.id, customer_name: order.customer_name });
     });
     setSummary(Object.values(stats));
@@ -237,7 +243,7 @@ export default function Home() {
 
           <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
             
-            {/* ★ 1. 客製化輸入區塊：移到最上面 (在菜單列表之前) */}
+            {/* 客製化輸入區塊 */}
             <div className={`mb-8 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xl font-bold text-gray-700">✏️ 客製化品項 / 特殊需求</span>
@@ -245,13 +251,30 @@ export default function Home() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：雞腿飯-不要蔥)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-1 border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
                 <div className="flex gap-3">
-                  <input type="number" placeholder="金額" value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} disabled={isExpired} className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-                  <button disabled={isExpired} onClick={() => { if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); handleOrder(customItemName, parseInt(customItemPrice)); }} className={`px-6 py-3 rounded-lg font-bold transition ${isExpired ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>下單</button>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    placeholder="金額" 
+                    value={customItemPrice} 
+                    onChange={(e) => setCustomItemPrice(e.target.value)} 
+                    disabled={isExpired} 
+                    className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" 
+                  />
+                  <button 
+                    disabled={isExpired} 
+                    onClick={() => { 
+                      if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); 
+                      handleOrder(customItemName, parseFloat(customItemPrice)); 
+                    }} 
+                    className={`px-6 py-3 rounded-lg font-bold transition ${isExpired ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                  >
+                    下單
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* ★ 2. 菜單列表 */}
+            {/* 菜單列表 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
               {menu.map((item) => (
                 <MenuCard 
@@ -265,11 +288,12 @@ export default function Home() {
               ))}
             </div>
 
-            {/* ★ 3. 訂單統計 */}
+            {/* 訂單統計 */}
             <OrderSummary 
               storeName={currentStore.name} 
               summary={summary} 
-              totalAmount={summary.reduce((a, b) => a + b.total, 0)} 
+              // ★ 修改：總金額也加上 Math.round 確保不會出現 120.00000004
+              totalAmount={Math.round(summary.reduce((a, b) => a + b.total, 0) * 10) / 10} 
               totalCount={summary.reduce((a, b) => a + b.count, 0)}
               isExpired={isExpired} 
               onDeleteOrder={handleDeleteOrder} 
