@@ -30,6 +30,9 @@ export default function Home() {
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [inputEndDateTime, setInputEndDateTime] = useState('');
 
+  // ★ 新增：控制「回到頂部」按鈕的顯示狀態
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
   // 初始化與 Real-time 監聽
   useEffect(() => {
     checkDailyStatus();
@@ -39,12 +42,31 @@ export default function Home() {
     updateCountdown();
     const timer = setInterval(updateCountdown, 1000);
 
+    // ★ 新增：監聽捲動事件
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(statusChannel);
       clearInterval(timer);
+      window.removeEventListener('scroll', handleScroll); // 清除監聽
     };
   }, [endTime]);
+
+  // ★ 新增：回到頂部功能
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth', // 平滑捲動
+    });
+  };
 
   // 倒數計時邏輯
   const updateCountdown = () => {
@@ -86,7 +108,7 @@ export default function Home() {
     const { data: store } = await supabase.from('stores').select('*').eq('id', storeId).single();
     setCurrentStore(store);
     
-    // ★ 修改處：加入 .order('price', { ascending: true }) 讓菜單依價格排序
+    // 依價格排序
     const { data: menuData } = await supabase
       .from('products')
       .select('*')
@@ -197,6 +219,18 @@ export default function Home() {
             onShowLargeImage={() => setShowLargeImage(true)} 
           />
 
+          {/* ★ 「回到頂部」按鈕 */}
+          <button 
+            onClick={scrollToTop}
+            className={`fixed bottom-28 right-8 z-40 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+            title="回到頂部"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+          </button>
+
+          {/* 「換一家」按鈕 (維持原位，但 Scroll Top 會浮在它上面) */}
           <button onClick={handleResetStore} className="fixed bottom-8 right-8 z-40 bg-orange-600 text-white px-6 py-4 rounded-2xl shadow-2xl hover:bg-orange-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20">
             <span className="text-xl font-bold">🔄 換一家</span>
           </button>
