@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useGroupOrders } from '@/hooks/useGroupOrders'; // 引入我們的 Hook
 
 // 引入元件
 import { StoreCard } from '@/components/StoreCard';
@@ -9,236 +9,99 @@ import { MenuCard } from '@/components/MenuCard';
 import { OrderSummary } from '@/components/OrderSummary';
 import { StartGroupModal } from '@/components/StartGroupModal';
 
-// 型別定義
-type Store = { id: number; name: string; image_url: string | null; phone: string | null; };
-type Product = { id: number; store_id: number; name: string; price: number; description: string | null; };
-type Order = { id: number; item_name: string; price: number; customer_name: string; quantity: number; group_id: number; };
-type SummaryItem = { name: string; count: number; total: number; orderDetails: { id: number; customer_name: string; quantity: number }[]; };
-type Group = { id: number; store_id: number; end_time: string; name: string | null; store: Store };
-
 export default function Home() {
-  const [todayGroups, setTodayGroups] = useState<Group[]>([]);
-  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
-  const [storeList, setStoreList] = useState<Store[]>([]); 
-  
-  const [menu, setMenu] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [summary, setSummary] = useState<SummaryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  const [timeLeft, setTimeLeft] = useState<string>('');
-  const [isExpired, setIsExpired] = useState(false);
+  // ★ 使用 Hook 取得所有邏輯與資料
+  const {
+    todayGroups,
+    activeGroupId,
+    activeGroup,
+    storeList,
+    menu,
+    summary,
+    loading,
+    timeLeft,
+    isExpired,
+    switchGroup,
+    createOrder,
+    deleteOrder,
+    createGroup,
+    closeGroup
+  } = useGroupOrders();
+
+  // --- UI 狀態 (這些屬於畫面互動，保留在 Page 層) ---
   const [showLargeImage, setShowLargeImage] = useState(false);
-  
   const [showStartGroupModal, setShowStartGroupModal] = useState(false); 
   const [showStoreSelector, setShowStoreSelector] = useState(false);
-
   const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
   const [inputEndDateTime, setInputEndDateTime] = useState('');
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // 客製化輸入狀態
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [customItemCount, setCustomItemCount] = useState(1);
-  const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // 捲動監聽 (UI 行為)
   useEffect(() => {
-    fetchStores();
-    fetchTodayGroups();
-    
-    const groupChannel = supabase.channel('realtime_groups')
-      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'daily_groups' }, () => {
-        fetchTodayGroups();
-      })
-      .subscribe();
-
-    const ordersChannel = supabase.channel('realtime_orders')
-      .on('postgres_changes' as any, { event: '*', schema: 'public', table: 'orders' }, () => {
-        if (activeGroupId) fetchOrders(activeGroupId);
-      })
-      .subscribe();
-    
-    const timer = setInterval(updateCountdown, 1000);
-
     const handleScroll = () => {
       if (window.scrollY > 300) setShowScrollTop(true);
       else setShowScrollTop(false);
     };
     window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-    return () => {
-      supabase.removeChannel(groupChannel);
-      supabase.removeChannel(ordersChannel);
-      clearInterval(timer);
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [activeGroupId]);
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  // --- 事件處理 ---
 
-  const fetchStores = async () => {
-    const { data } = await supabase.from('stores').select('*').order('id');
-    if (data) setStoreList(data);
-  };
-
-  const fetchTodayGroups = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    const { data } = await supabase
-      .from('daily_groups')
-      .select('*, store:stores(*)')
-      .eq('order_date', today)
-      .order('id', { ascending: true });
-    
-    if (data && data.length > 0) {
-      setTodayGroups(data as any);
-      
-      const currentGroupStillExists = data.find((g: any) => g.id === activeGroupId);
-      if (!activeGroupId || !currentGroupStillExists) {
-        handleSwitchGroup(data[0].id, data[0].store_id);
-      } else {
-        fetchOrders(activeGroupId);
-      }
-    } else {
-      setTodayGroups([]);
-      setActiveGroupId(null);
-      setOrders([]);
-      setSummary([]);
-    }
-    setLoading(false);
-  };
-
-  const handleSwitchGroup = async (groupId: number, storeId: number) => {
-    setActiveGroupId(groupId);
-    const { data: menuData } = await supabase
-      .from('products')
-      .select('*')
-      .eq('store_id', storeId)
-      .order('price', { ascending: true });
-    if (menuData) setMenu(menuData);
-    
-    fetchOrders(groupId);
-    setCustomItemName(''); setCustomItemPrice(''); setCustomItemCount(1);
-  };
-
-  const fetchOrders = async (groupId: number) => {
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('group_id', groupId)
-      .order('created_at', { ascending: false });
-    
-    if (data) { 
-      setOrders(data); 
-      calculateSummary(data); 
-    }
-  };
-
-  const calculateSummary = (ordersData: Order[]) => {
-    const stats: Record<string, SummaryItem> = {};
-    ordersData.forEach(order => {
-      const qty = order.quantity || 1;
-      if (!stats[order.item_name]) stats[order.item_name] = { name: order.item_name, count: 0, total: 0, orderDetails: [] };
-      stats[order.item_name].count += qty;
-      let newTotal = stats[order.item_name].total + (order.price * qty);
-      stats[order.item_name].total = Math.round(newTotal * 10) / 10;
-      stats[order.item_name].orderDetails.push({ id: order.id, customer_name: order.customer_name, quantity: qty });
-    });
-    setSummary(Object.values(stats));
-  };
-
-  const updateCountdown = () => {
-    if (!activeGroupId || todayGroups.length === 0) return;
-    const currentGroup = todayGroups.find(g => g.id === activeGroupId);
-    if (!currentGroup?.end_time) return;
-
-    const now = new Date().getTime();
-    const end = new Date(currentGroup.end_time).getTime();
-    const diff = end - now;
-
-    if (diff <= 0) { 
-      setIsExpired(true); 
-      setTimeLeft('🔴 已結單'); 
-    } else {
-      setIsExpired(false);
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const secs = Math.floor((diff % (1000 * 60)) / 1000);
-      setTimeLeft(`⏳ 倒數：${hours}時 ${mins}分 ${secs}秒`);
-    }
-  };
-
-  const handleOrder = async (itemName: string, itemPrice: number, quantity: number = 1) => {
-    if (isExpired) return alert('🔴 抱歉，已經超過結單時間，無法再點餐！');
-    if (!activeGroupId) return;
-
+  const handleOrderSubmit = async (itemName: string, itemPrice: number, quantity: number = 1) => {
     const name = prompt(`你要訂購 ${quantity} 份「${itemName}」，請輸入你的名字：`);
     if (!name) return;
 
-    const { error } = await supabase.from('orders').insert([{ 
-      item_name: itemName, 
-      price: itemPrice, 
-      customer_name: name,
-      quantity: quantity,
-      group_id: activeGroupId
-    }]);
-
-    if (!error) { 
+    try {
+      await createOrder(itemName, itemPrice, quantity, name);
+      // 清空客製化輸入
       setCustomItemName(''); setCustomItemPrice(''); setCustomItemCount(1);
-    } else {
+    } catch (error: any) {
       alert('失敗：' + error.message);
     }
   };
 
-  const handleDeleteOrder = async (orderId: number, customerName: string) => {
-    if (isExpired) return alert('🔴 已結單，無法修改或刪除訂單。');
+  const handleDeleteSubmit = async (orderId: number, customerName: string) => {
     const confirmName = prompt(`確定要刪除 ${customerName} 的這份餐點嗎？\n請輸入你的名字「${customerName}」進行確認：`);
     if (confirmName === customerName) {
-      const { error } = await supabase.from('orders').delete().eq('id', orderId);
-      if (error) alert('刪除失敗：' + error.message);
-    } else if (confirmName !== null) alert('名字輸入不正確，刪除失敗。');
+      try {
+        await deleteOrder(orderId);
+      } catch (error: any) {
+        alert('刪除失敗：' + error.message);
+      }
+    } else if (confirmName !== null) {
+      alert('名字輸入不正確，刪除失敗。');
+    }
   };
 
-  const handleCreateGroup = async (storeId: number, endTime: string, groupName: string) => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    const fullEndDateTime = new Date(endTime).toISOString();
-
-    const { error } = await supabase.from('daily_groups').insert([{
-      order_date: todayStr,
-      store_id: storeId,
-      end_time: fullEndDateTime,
-      name: groupName || null
-    }]);
-
-    if (!error) {
+  const handleCreateGroupSubmit = async (storeId: number, endTime: string, groupName: string) => {
+    try {
+      await createGroup(storeId, endTime, groupName);
       alert('✅ 開團成功！');
       setShowStartGroupModal(false);
       setShowStoreSelector(false);
       setPreSelectedStoreId(null);
       setInputEndDateTime('');
-      fetchTodayGroups();
-    } else {
+    } catch (error: any) {
       alert('開團失敗：' + error.message);
     }
   };
 
-  const handleCloseCurrentGroup = async () => {
-    if (!activeGroupId) return;
-    const currentGroup = todayGroups.find(g => g.id === activeGroupId);
-    if (!currentGroup) return;
-
-    if (!window.confirm(`確定要關閉「${currentGroup.store.name}」的團購嗎？\n⚠️ 這會刪除此團的所有訂單，且無法復原！`)) return;
-
-    setLoading(true);
-    await supabase.from('orders').delete().eq('group_id', activeGroupId);
-    const { error } = await supabase.from('daily_groups').delete().eq('id', activeGroupId);
-
-    if (error) {
+  const handleCloseGroupSubmit = async () => {
+    if (!activeGroup) return;
+    if (!window.confirm(`確定要關閉「${activeGroup.store.name}」的團購嗎？\n⚠️ 這會刪除此團的所有訂單，且無法復原！`)) return;
+    try {
+      await closeGroup();
+    } catch (error: any) {
       alert('刪除失敗：' + error.message);
-    } else {
-      await fetchTodayGroups();
     }
-    setLoading(false);
   };
 
   const handleCardClick = (storeId: number) => {
@@ -248,7 +111,7 @@ export default function Home() {
       }
       const storeName = storeList.find(s => s.id === storeId)?.name;
       if (!window.confirm(`確定要直接發起「${storeName}」的團購嗎？\n結單時間：${new Date(inputEndDateTime).toLocaleString()}`)) return;
-      handleCreateGroup(storeId, inputEndDateTime, ''); 
+      handleCreateGroupSubmit(storeId, inputEndDateTime, ''); 
     } else {
       setPreSelectedStoreId(storeId);
       setShowStartGroupModal(true);
@@ -257,165 +120,97 @@ export default function Home() {
 
   if (loading) return <div className="p-10 text-center text-gray-500 font-medium">系統載入中...</div>;
 
-  const activeGroupData = todayGroups.find(g => g.id === activeGroupId);
-
   return (
     <div className="min-h-screen bg-gray-50 pb-20 relative">
       
+      {/* Modal: 設定時間 */}
       {showStartGroupModal && (
         <StartGroupModal 
           stores={storeList} 
           initialStoreId={preSelectedStoreId}
-          onClose={() => {
-            setShowStartGroupModal(false);
-            setPreSelectedStoreId(null);
-          }} 
-          onSubmit={handleCreateGroup} 
+          onClose={() => { setShowStartGroupModal(false); setPreSelectedStoreId(null); }} 
+          onSubmit={handleCreateGroupSubmit} 
         />
       )}
 
+      {/* Overlay: 店家選擇牆 */}
       {showStoreSelector && (
         <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto animate-fadeIn">
           <div className="max-w-6xl mx-auto p-6 min-h-screen">
             <div className="flex justify-between items-center mb-8 sticky top-0 bg-gray-50/95 backdrop-blur py-4 z-10 border-b border-gray-200">
               <h2 className="text-3xl font-black text-gray-800">🎉 加開新團購</h2>
-              <button 
-                onClick={() => setShowStoreSelector(false)}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-600 px-5 py-2 rounded-xl font-bold transition"
-              >
-                取消
-              </button>
+              <button onClick={() => setShowStoreSelector(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-600 px-5 py-2 rounded-xl font-bold transition">取消</button>
             </div>
-
             <div className="flex justify-center mb-10">
               <div className="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-2 w-full max-w-md">
-                <label className="text-sm font-bold text-indigo-800 flex items-center gap-2">
-                  <span>⏱️</span>
-                  <span>快速設定結單時間 (選填)</span>
-                </label>
-                <input 
-                  type="datetime-local" 
-                  value={inputEndDateTime} 
-                  onChange={e => setInputEndDateTime(e.target.value)} 
-                  className="w-full border-2 border-indigo-100 p-2 rounded-lg font-bold text-gray-700 outline-none focus:border-indigo-500 bg-gray-50" 
-                />
+                <label className="text-sm font-bold text-indigo-800 flex items-center gap-2"><span>⏱️</span><span>快速設定結單時間 (選填)</span></label>
+                <input type="datetime-local" value={inputEndDateTime} onChange={e => setInputEndDateTime(e.target.value)} className="w-full border-2 border-indigo-100 p-2 rounded-lg font-bold text-gray-700 outline-none focus:border-indigo-500 bg-gray-50" />
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
               {storeList.map(store => (
-                <StoreCard 
-                  key={store.id} 
-                  name={store.name} 
-                  imageUrl={store.image_url} 
-                  phone={store.phone} 
-                  onSelect={() => handleCardClick(store.id)} 
-                />
+                <StoreCard key={store.id} name={store.name} imageUrl={store.image_url} phone={store.phone} onSelect={() => handleCardClick(store.id)} />
               ))}
             </div>
           </div>
         </div>
       )}
 
+      {/* --- 主畫面邏輯 --- */}
+
       {todayGroups.length === 0 ? (
+        // 1. 完全沒團
         <div className="max-w-6xl mx-auto p-6">
           <div className="text-center py-6">
             <h1 className="text-4xl font-black text-gray-800 mb-2">🍽️ 今天吃什麼？</h1>
             <p className="text-gray-500 text-lg">發起今天的第一個團購吧！</p>
           </div>
-
           <div className="flex justify-center mb-10">
             <div className="bg-blue-50 p-5 rounded-2xl border border-blue-200 shadow-sm flex flex-col items-center gap-3 animate-fadeIn">
-              <label className="text-base font-bold text-blue-800 flex items-center gap-2">
-                <span>⏱️</span>
-                <span>快速開團：請先設定結單時間</span>
-              </label>
-              <input 
-                type="datetime-local" 
-                value={inputEndDateTime} 
-                onChange={e => setInputEndDateTime(e.target.value)} 
-                className="border-2 border-blue-300 p-2 rounded-lg text-xl font-bold text-gray-700 outline-none focus:border-blue-500 bg-white shadow-inner" 
-              />
+              <label className="text-base font-bold text-blue-800 flex items-center gap-2"><span>⏱️</span><span>快速開團：請先設定結單時間</span></label>
+              <input type="datetime-local" value={inputEndDateTime} onChange={e => setInputEndDateTime(e.target.value)} className="border-2 border-blue-300 p-2 rounded-lg text-xl font-bold text-gray-700 outline-none focus:border-blue-500 bg-white shadow-inner" />
               <p className="text-xs text-blue-500 font-medium">✨ 設定後，點擊下方卡片即可直接開團</p>
             </div>
           </div>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {storeList.map(store => (
-              <StoreCard 
-                key={store.id} 
-                name={store.name} 
-                imageUrl={store.image_url} 
-                phone={store.phone} 
-                onSelect={() => handleCardClick(store.id)} 
-              />
+              <StoreCard key={store.id} name={store.name} imageUrl={store.image_url} phone={store.phone} onSelect={() => handleCardClick(store.id)} />
             ))}
           </div>
         </div>
       ) : (
+        // 2. 有團購 (Tabs & Menu)
         <>
           <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
             <div className="max-w-5xl mx-auto px-4 flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide">
               {todayGroups.map(group => (
                 <button
                   key={group.id}
-                  onClick={() => handleSwitchGroup(group.id, group.store_id)}
+                  onClick={() => switchGroup(group.id, group.store_id)}
                   className={`flex flex-col items-start px-5 py-1.5 rounded-xl transition-all border ${
                     activeGroupId === group.id 
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-105' 
                       : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                   }`}
                 >
-                  <span className="font-bold text-sm whitespace-nowrap">
-                    {group.store.name}
-                  </span>
-                  <span className={`text-[10px] ${activeGroupId === group.id ? 'text-indigo-200' : 'text-gray-400'}`}>
-                    {group.name ? group.name : '團購 #' + group.id}
-                  </span>
+                  <span className="font-bold text-sm whitespace-nowrap">{group.store.name}</span>
+                  <span className={`text-[10px] ${activeGroupId === group.id ? 'text-indigo-200' : 'text-gray-400'}`}>{group.name ? group.name : '團購 #' + group.id}</span>
                 </button>
               ))}
-
-              <button
-                onClick={() => setShowStoreSelector(true)}
-                className="ml-2 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all font-bold text-xl"
-                title="加開新團購"
-              >
-                ＋
-              </button>
+              <button onClick={() => setShowStoreSelector(true)} className="ml-2 w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all font-bold text-xl" title="加開新團購">＋</button>
             </div>
           </div>
 
-          {activeGroupData && (
+          {activeGroup && (
             <>
-              <StoreBanner 
-                name={activeGroupData.store.name} 
-                imageUrl={activeGroupData.store.image_url} 
-                phone={activeGroupData.store.phone} 
-                timeLeft={timeLeft} 
-                endTime={activeGroupData.end_time} 
-                isExpired={isExpired} 
-                onShowLargeImage={() => setShowLargeImage(true)} 
-              />
-
-              <button onClick={scrollToTop} className={`fixed bottom-8 right-8 z-30 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`} title="回到頂部">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-              </button>
-
-              <button 
-                onClick={handleCloseCurrentGroup} 
-                className="fixed bottom-28 right-8 z-30 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1"
-                title="刪除目前顯示的團購"
-              >
-                <span className="text-xl">❌</span>
-                <span className="text-xs font-bold">關閉此團</span>
-              </button>
+              <StoreBanner name={activeGroup.store.name} imageUrl={activeGroup.store.image_url} phone={activeGroup.store.phone} timeLeft={timeLeft} endTime={activeGroup.end_time} isExpired={isExpired} onShowLargeImage={() => setShowLargeImage(true)} />
+              
+              <button onClick={scrollToTop} className={`fixed bottom-8 right-8 z-30 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`} title="回到頂部"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg></button>
+              <button onClick={handleCloseGroupSubmit} className="fixed bottom-28 right-8 z-30 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1" title="刪除目前顯示的團購"><span className="text-xl">❌</span><span className="text-xs font-bold">關閉此團</span></button>
 
               <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
-                
                 <div className={`mb-8 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl font-bold text-gray-700">✏️ 客製化 / 隱藏版 ({activeGroupData.store.name})</span>
-                  </div>
+                  <div className="flex items-center gap-2 mb-3"><span className="text-xl font-bold text-gray-700">✏️ 客製化 / 隱藏版 ({activeGroup.store.name})</span></div>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：半糖少冰)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-[2] border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
                     <div className="flex gap-2 flex-1">
@@ -425,41 +220,23 @@ export default function Home() {
                         <span className="w-8 text-center font-bold text-gray-800">{customItemCount}</span>
                         <button onClick={() => setCustomItemCount(c => c + 1)} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>+</button>
                       </div>
-                      
-                      {/* ★ 修改：使用跟 MenuCard 一模一樣的 Orange Style */}
-                      <button 
-                        disabled={isExpired} 
-                        onClick={() => { 
-                          if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); 
-                          handleOrder(customItemName, parseFloat(customItemPrice), customItemCount); 
-                        }} 
-                        className={`flex-1 px-4 py-3 rounded-lg font-bold transition shadow-sm whitespace-nowrap ${isExpired ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}
-                      >
-                        {isExpired ? '已結單' : '加入'}
-                      </button>
+                      <button disabled={isExpired} onClick={() => { if(!customItemName || !customItemPrice) return alert('請輸入完整內容與金額'); handleOrderSubmit(customItemName, parseFloat(customItemPrice), customItemCount); }} className={`flex-1 px-4 py-3 rounded-lg font-bold transition shadow-sm whitespace-nowrap ${isExpired ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}>{isExpired ? '已結單' : '加入'}</button>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
                   {menu.map((item) => (
-                    <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} isExpired={isExpired} onOrder={(count: number) => handleOrder(item.name, item.price, count)} />
+                    <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} isExpired={isExpired} onOrder={(count: number) => handleOrderSubmit(item.name, item.price, count)} />
                   ))}
                 </div>
 
-                <OrderSummary 
-                  storeName={activeGroupData.store.name} 
-                  summary={summary} 
-                  totalAmount={Math.round(summary.reduce((a, b) => a + b.total, 0) * 10) / 10} 
-                  totalCount={summary.reduce((a, b) => a + b.count, 0)}
-                  isExpired={isExpired} 
-                  onDeleteOrder={handleDeleteOrder} 
-                />
+                <OrderSummary storeName={activeGroup.store.name} summary={summary} totalAmount={Math.round(summary.reduce((a, b) => a + b.total, 0) * 10) / 10} totalCount={summary.reduce((a, b) => a + b.count, 0)} isExpired={isExpired} onDeleteOrder={handleDeleteSubmit} />
               </div>
 
-              {showLargeImage && activeGroupData.store.image_url && (
+              {showLargeImage && activeGroup.store.image_url && (
                 <div className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-fadeIn" onClick={() => setShowLargeImage(false)}>
-                  <img src={activeGroupData.store.image_url} alt={activeGroupData.store.name} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+                  <img src={activeGroup.store.image_url} alt={activeGroup.store.name} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
                   <button className="absolute top-6 right-6 text-white text-4xl opacity-70 hover:opacity-100 transition">&times;</button>
                 </div>
               )}
