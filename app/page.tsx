@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useGroupOrders } from '@/hooks/useGroupOrders'; // 引入我們的 Hook
+import { useGroupOrders } from '@/hooks/UseGroupOrders'; // 引入我們的 Hook
 
 // 引入元件
 import { StoreCard } from '@/components/StoreCard';
