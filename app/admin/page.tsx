@@ -12,7 +12,6 @@ import { LoginPage } from '@/components/admin/LoginPage';
 
 // 型別定義
 type Store = { id: number; name: string; image_url: string | null; phone: string | null; };
-// ★ 更新 Product 型別
 type Product = { id: number; store_id: number; name: string; price: number; description: string | null; };
 
 export default function AdminPage() {
@@ -31,7 +30,7 @@ export default function AdminPage() {
   const [menuItems, setMenuItems] = useState<Product[]>([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
-  const [newItemDescription, setNewItemDescription] = useState(''); // ★ 新增備註狀態
+  const [newItemDescription, setNewItemDescription] = useState(''); 
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -127,19 +126,41 @@ export default function AdminPage() {
 
   const handleAddSingleItem = async () => {
     if (!newItemName || !newItemPrice || !editingStore) return;
-    // ★ 插入時包含 description
     const { error } = await supabase.from('products').insert([{ 
       store_id: editingStore.id, 
       name: newItemName, 
       price: parseInt(newItemPrice),
-      description: newItemDescription.trim() || null // ★
+      description: newItemDescription.trim() || null 
     }]);
     
     if (!error) {
       setNewItemName(''); 
       setNewItemPrice(''); 
-      setNewItemDescription(''); // ★ 清空
+      setNewItemDescription(''); 
       fetchMenu(editingStore.id);
+    }
+  };
+
+  // ★ 新增：即時更新品項 (價格或備註)
+  const handleUpdateItem = async (id: number, field: 'price' | 'description', value: string | number) => {
+    if (!editingStore) return;
+    
+    // 如果是價格且不是數字，或是空值，則忽略
+    if (field === 'price' && isNaN(Number(value))) return;
+
+    // 呼叫 Supabase 更新
+    const { error } = await supabase
+      .from('products')
+      .update({ [field]: value })
+      .eq('id', id);
+
+    if (!error) {
+      // 成功後重新整理清單，確保畫面與資料庫同步
+      // (也可以選擇不重整，直接改本地 state，看你喜歡哪種)
+      // 這裡選擇重新整理比較保險
+      fetchMenu(editingStore.id);
+    } else {
+      alert('更新失敗: ' + error.message);
     }
   };
 
@@ -165,7 +186,7 @@ export default function AdminPage() {
             store_id: editingStore.id, 
             name: row[0], 
             price: parseInt(row[1]),
-            description: row[2] ? String(row[2]) : null // ★ 嘗試讀取 Excel 第三欄作為備註
+            description: row[2] ? String(row[2]) : null 
           });
         }
       });
@@ -215,14 +236,15 @@ export default function AdminPage() {
           menuItems={menuItems}
           newItemName={newItemName}
           newItemPrice={newItemPrice}
-          newItemDescription={newItemDescription} // ★
+          newItemDescription={newItemDescription} 
           onClose={() => setEditingStore(null)}
           onExcelUpload={handleExcelUpload}
           onNameChange={setNewItemName}
           onPriceChange={setNewItemPrice}
-          onDescriptionChange={setNewItemDescription} // ★
+          onDescriptionChange={setNewItemDescription} 
           onAddItem={handleAddSingleItem}
           onDeleteItem={handleDeleteItem}
+          onUpdateItem={handleUpdateItem} // ★ 傳入更新函數
         />
       )}
     </div>

@@ -4,7 +4,7 @@ type Product = {
   id: number;
   name: string;
   price: number;
-  description: string | null; // ★ 新增 description
+  description: string | null;
 };
 
 type Props = {
@@ -12,14 +12,16 @@ type Props = {
   menuItems: Product[];
   newItemName: string;
   newItemPrice: string;
-  newItemDescription: string; // ★ 新增
+  newItemDescription: string;
   onClose: () => void;
   onExcelUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onNameChange: (val: string) => void;
   onPriceChange: (val: string) => void;
-  onDescriptionChange: (val: string) => void; // ★ 新增
+  onDescriptionChange: (val: string) => void;
   onAddItem: () => void;
   onDeleteItem: (id: number) => void;
+  // ★ 新增更新用的函數
+  onUpdateItem: (id: number, field: 'price' | 'description', value: string | number) => void;
 };
 
 export function EditMenuModal({ 
@@ -27,14 +29,15 @@ export function EditMenuModal({
   menuItems, 
   newItemName, 
   newItemPrice, 
-  newItemDescription, // ★
+  newItemDescription,
   onClose, 
   onExcelUpload,
   onNameChange,
   onPriceChange,
-  onDescriptionChange, // ★
+  onDescriptionChange,
   onAddItem,
-  onDeleteItem 
+  onDeleteItem,
+  onUpdateItem // ★
 }: Props) {
   return (
     <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-6 z-50 backdrop-blur-md">
@@ -71,7 +74,6 @@ export function EditMenuModal({
                 onChange={(e) => onNameChange(e.target.value)} 
                 className="flex-[2] h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium" 
               />
-               {/* ★ 新增備註輸入框 */}
               <input 
                 placeholder="備註 (選填)" 
                 value={newItemDescription} 
@@ -100,7 +102,7 @@ export function EditMenuModal({
               <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                 <tr>
                   <th className="p-4">Item Name</th>
-                  <th className="p-4">Note</th> {/* ★ */}
+                  <th className="p-4">Note (Click to Edit)</th> {/* ★ 提示可編輯 */}
                   <th className="p-4 w-28">Price</th>
                   <th className="p-4 w-12"></th>
                 </tr>
@@ -109,9 +111,28 @@ export function EditMenuModal({
                 {menuItems.map(item => (
                   <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-bold text-slate-700">{item.name}</td>
-                    {/* ★ 顯示備註 */}
-                    <td className="p-4 text-sm text-slate-500">{item.description || '-'}</td>
-                    <td className="p-4 font-black text-indigo-600">${item.price}</td>
+                    
+                    {/* ★ 備註欄位：改成 Input */}
+                    <td className="p-4">
+                      <input 
+                        type="text"
+                        defaultValue={item.description || ''}
+                        placeholder="無備註"
+                        onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)}
+                        className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none text-sm text-slate-600 transition-colors"
+                      />
+                    </td>
+
+                    {/* ★ 價格欄位：改成 Input */}
+                    <td className="p-4">
+                      <input 
+                        type="number"
+                        defaultValue={item.price}
+                        onBlur={(e) => onUpdateItem(item.id, 'price', parseInt(e.target.value))}
+                        className="w-full font-black text-indigo-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-colors"
+                      />
+                    </td>
+
                     <td className="p-4">
                       <button onClick={() => onDeleteItem(item.id)} className="text-slate-300 hover:text-rose-500 transition-colors text-xl">×</button>
                     </td>
