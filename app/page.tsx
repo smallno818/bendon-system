@@ -141,7 +141,5 @@ export default function Home() {
           辦公室團購小幫手 v1.0.0
         </p>
       </footer>
-
-    </div>
   );
 }
