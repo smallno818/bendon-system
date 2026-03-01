@@ -42,6 +42,22 @@ export function ActiveGroupView({
       });
   };
 
+  // ★ 新增：分享到 LINE 的邏輯
+  const handleShareToLine = () => {
+    // 將結單時間格式化成可讀性高的文字 (例如: 14:30)
+    const end = new Date(activeGroup.end_time);
+    const timeStr = end.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    // 組合要發送的文案內容
+    const text = `🍱 辦公室揪團囉！\n今天吃【${activeGroup.store.name}】\n\n⏱️ 結單時間：今天 ${timeStr}\n👉 快速點餐連結：\n${window.location.href}`;
+    
+    // 將文字編碼並組合 LINE 的分享網址
+    const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
+    
+    // 開啟新視窗 (手機上會自動觸發開啟 LINE App)
+    window.open(lineUrl, '_blank');
+  };
+
   return (
     <>
       {/* Tabs 分頁列 */}
@@ -86,6 +102,23 @@ export function ActiveGroupView({
       </button>
 
       <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
+
+        {/* ★ 新增：LINE 分享按鈕 (若已結單則自動隱藏) */}
+        {!isExpired && (
+          <div className="flex justify-end mb-4 print:hidden animate-fadeIn">
+            <button 
+              onClick={handleShareToLine}
+              className="flex items-center gap-2 bg-[#00B900] text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-[#00a000] transition-all hover:-translate-y-0.5 active:scale-95"
+              title="分享開團資訊到 LINE"
+            >
+              {/* 這裡使用的是 LINE 官方的經典 Logo SVG 向量圖 */}
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 4.269 8.846 10.036 9.608.391.084.922.258 1.057.592.122.301.08.771.037 1.085l-.171 1.027c-.05.303-.242 1.186 1.039.647 1.281-.54 6.911-4.069 9.428-6.967 1.739-1.907 2.574-3.843 2.574-5.992zM8.525 12.352H6.012c-.227 0-.411-.184-.411-.411V7.936c0-.227.184-.411.411-.411h2.513c.227 0 .411.184.411.411v3.593h2.098c.227 0 .411.184.411.411v.412c0 .227-.184.411-.411.411z" />
+              </svg>
+              <span>分享揪團連結</span>
+            </button>
+          </div>
+        )}
         
         {/* 客製化輸入區 */}
         <div className={`mb-8 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -94,16 +127,15 @@ export function ActiveGroupView({
             <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：半糖少冰)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-[2] border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
             <div className="flex gap-2 flex-1">
               
-              {/* ★ 修改重點：金額輸入框防呆機制 */}
+              {/* 金額輸入框防呆機制 */}
               <input 
                 type="number" 
                 step="0.1" 
-                min="0"  /* HTML 原生防止按出負數 */
+                min="0"  
                 placeholder="金額" 
                 value={customItemPrice} 
                 onChange={(e) => {
                   const val = e.target.value;
-                  // React 邏輯防線：允許清空輸入框，但只要輸入的不是空白且小於 0，就不更新狀態
                   if (val === '' || Number(val) >= 0) {
                     setCustomItemPrice(val);
                   }
