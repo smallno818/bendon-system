@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useGroupOrders } from '@/hooks/useGroupOrders';
+import { UseGroupOrders } from '@/hooks/UseGroupOrders';
 
 // 引入我們剛剛拆分的 View 元件
 import { EmptyStateView } from '@/components/views/EmptyStateView';
