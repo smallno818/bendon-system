@@ -138,6 +138,9 @@ export default function Home() {
         <p className="text-xs text-gray-400">
           辦公室團購小幫手 v1.0.0
         </p>
+        <p className="text-xs text-red-400">
+          僅供ML訂便當群組內部使用
+        </p>
       </footer>
 
     </div>
