@@ -26,7 +26,6 @@ export function ActiveGroupView({
   onSwitchGroup, onOpenStoreSelector, onOrder, onDeleteOrder, onCloseGroup, onScrollTop
 }: Props) {
   
-  // ★ 將客製化輸入狀態移入這個元件，讓 page.tsx 更乾淨
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [customItemCount, setCustomItemCount] = useState(1);
@@ -94,7 +93,25 @@ export function ActiveGroupView({
           <div className="flex flex-col sm:flex-row gap-3">
             <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：半糖少冰)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-[2] border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
             <div className="flex gap-2 flex-1">
-              <input type="number" step="0.1" placeholder="金額" value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} disabled={isExpired} className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+              
+              {/* ★ 修改重點：金額輸入框防呆機制 */}
+              <input 
+                type="number" 
+                step="0.1" 
+                min="0"  /* HTML 原生防止按出負數 */
+                placeholder="金額" 
+                value={customItemPrice} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // React 邏輯防線：允許清空輸入框，但只要輸入的不是空白且小於 0，就不更新狀態
+                  if (val === '' || Number(val) >= 0) {
+                    setCustomItemPrice(val);
+                  }
+                }} 
+                disabled={isExpired} 
+                className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" 
+              />
+
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
                 <button onClick={() => setCustomItemCount(c => Math.max(1, c - 1))} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>-</button>
                 <span className="w-8 text-center font-bold text-gray-800">{customItemCount}</span>
