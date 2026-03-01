@@ -34,7 +34,7 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
           
           <div className="flex gap-2 print:hidden">
             <button onClick={() => window.print()} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-md font-bold transition">
-              🖨️ 在電腦上列印
+              🖨️ 列印訂單
             </button>
           </div>
         </div>
