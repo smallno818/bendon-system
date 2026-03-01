@@ -126,5 +126,22 @@ export default function Home() {
         />
       ) : null}
     </div>
+
+    {/* ★ 頁尾作者資訊區塊 (列印時隱藏) */}
+      <footer className="w-full py-6 text-center text-gray-400 text-sm border-t border-gray-200 mt-auto print:hidden">
+        <p className="mb-1">
+          Made with <span className="text-red-400">❤️</span> by{' '}
+          {/* 下方可以改成您自己的名字或超連結 */}
+          <a href="#" className="font-bold text-gray-500 hover:text-indigo-500 transition-colors">
+            您的名字
+          </a>{' '}
+          &copy; {new Date().getFullYear()}
+        </p>
+        <p className="text-xs text-gray-400">
+          辦公室團購小幫手 v1.0.0
+        </p>
+      </footer>
+
+    </div>
   );
 }
