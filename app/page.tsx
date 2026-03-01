@@ -131,10 +131,10 @@ export default function Home() {
       <footer className="w-full py-6 text-center text-gray-400 text-sm border-t border-gray-200 mt-auto print:hidden">
         <p className="mb-1">
           Made with <span className="text-red-400">❤️</span> by{' '}
-          {/* 下方可以改成您自己的名字或超連結 */}
-          <a href="#" className="font-bold text-gray-500 hover:text-indigo-500 transition-colors">
+          {/* ★ 修正：將無效的 a href="#" 改成 span，避免 Next.js build 錯誤 */}
+          <span className="font-bold text-gray-500 hover:text-indigo-500 transition-colors cursor-default">
             您的名字
-          </a>{' '}
+          </span>{' '}
           &copy; {new Date().getFullYear()}
         </p>
         <p className="text-xs text-gray-400">
