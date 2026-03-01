@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useGroupOrders } from '@/hooks/UseGroupOrders';
+import { useGroupOrders } from '@/hooks/useGroupOrders';
 
 // 引入我們剛剛拆分的 View 元件
 import { EmptyStateView } from '@/components/views/EmptyStateView';
@@ -75,7 +75,7 @@ export default function Home() {
   if (loading) return <div className="p-10 text-center text-gray-500 font-medium">系統載入中...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 relative">
+    <div className="min-h-screen bg-gray-50 relative flex flex-col">
       
       {/* 彈窗：設定時間 */}
       {showStartGroupModal && (
@@ -98,40 +98,38 @@ export default function Home() {
         />
       )}
 
-      {/* 主要畫面切換 */}
-      {todayGroups.length === 0 ? (
-        // 1. 無團購畫面
-        <EmptyStateView 
-          storeList={storeList}
-          inputEndDateTime={inputEndDateTime}
-          setInputEndDateTime={setInputEndDateTime}
-          onStoreSelect={handleCardClick}
-        />
-      ) : activeGroup ? (
-        // 2. 團購進行中畫面
-        <ActiveGroupView 
-          todayGroups={todayGroups}
-          activeGroupId={activeGroupId}
-          activeGroup={activeGroup}
-          menu={menu}
-          summary={summary}
-          timeLeft={timeLeft}
-          isExpired={isExpired}
-          onSwitchGroup={switchGroup}
-          onOpenStoreSelector={() => setShowStoreSelector(true)}
-          onOrder={handleOrderSubmit}
-          onDeleteOrder={handleDeleteSubmit}
-          onCloseGroup={handleCloseGroupSubmit}
-          onScrollTop={scrollToTop}
-        />
-      ) : null}
-    </div>
+      {/* 主要內容區塊 */}
+      <div className="flex-grow pb-20">
+        {todayGroups.length === 0 ? (
+          <EmptyStateView 
+            storeList={storeList}
+            inputEndDateTime={inputEndDateTime}
+            setInputEndDateTime={setInputEndDateTime}
+            onStoreSelect={handleCardClick}
+          />
+        ) : activeGroup ? (
+          <ActiveGroupView 
+            todayGroups={todayGroups}
+            activeGroupId={activeGroupId}
+            activeGroup={activeGroup}
+            menu={menu}
+            summary={summary}
+            timeLeft={timeLeft}
+            isExpired={isExpired}
+            onSwitchGroup={switchGroup}
+            onOpenStoreSelector={() => setShowStoreSelector(true)}
+            onOrder={handleOrderSubmit}
+            onDeleteOrder={handleDeleteSubmit}
+            onCloseGroup={handleCloseGroupSubmit}
+            onScrollTop={scrollToTop}
+          />
+        ) : null}
+      </div>
 
-    {/* ★ 頁尾作者資訊區塊 (列印時隱藏) */}
+      {/* 頁尾作者資訊區塊 (列印時隱藏) */}
       <footer className="w-full py-6 text-center text-gray-400 text-sm border-t border-gray-200 mt-auto print:hidden">
         <p className="mb-1">
           Made with <span className="text-red-400">❤️</span> by{' '}
-          {/* ★ 修正：將無效的 a href="#" 改成 span，避免 Next.js build 錯誤 */}
           <span className="font-bold text-gray-500 hover:text-indigo-500 transition-colors cursor-default">
             您的名字
           </span>{' '}
@@ -141,5 +139,7 @@ export default function Home() {
           辦公室團購小幫手 v1.0.0
         </p>
       </footer>
+
+    </div>
   );
 }
