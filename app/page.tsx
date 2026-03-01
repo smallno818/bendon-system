@@ -129,9 +129,9 @@ export default function Home() {
       {/* 頁尾作者資訊區塊 (列印時隱藏) */}
       <footer className="w-full py-6 text-center text-gray-400 text-sm border-t border-gray-200 mt-auto print:hidden">
         <p className="mb-1">
-          Made with <span className="text-red-400">❤️</span> by{' '}
+          Made with <span className="text-red-400">Next.js</span> by{' '}
           <span className="font-bold text-gray-500 hover:text-indigo-500 transition-colors cursor-default">
-            您的名字
+            ML-Carl
           </span>{' '}
           &copy; {new Date().getFullYear()}
         </p>
