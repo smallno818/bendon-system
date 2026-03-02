@@ -3,6 +3,7 @@ import { Group, Product, SummaryItem } from '@/types';
 import { StoreBanner } from '@/components/StoreBanner';
 import { MenuCard } from '@/components/MenuCard';
 import { OrderSummary } from '@/components/OrderSummary';
+import { LineIcon } from '@/components/LineIcon'; // 如果您前面有抽離成元件，就保留這行；如果沒有，請換回 SVG 標籤
 
 type Props = {
   todayGroups: Group[];
@@ -35,46 +36,52 @@ export function ActiveGroupView({
     if (!customItemName || !customItemPrice) return alert('請輸入完整內容與金額');
     onOrder(customItemName, parseFloat(customItemPrice), customItemCount)
       .then(() => {
-        // 成功後清空
         setCustomItemName('');
         setCustomItemPrice('');
         setCustomItemCount(1);
       });
   };
 
-  // ★ 修正：更聰明的 LINE 分享邏輯
+  // 分享開團資訊
   const handleShareToLine = () => {
     const end = new Date(activeGroup.end_time);
-    const now = new Date();
-    
-    // 判斷日期是今天還是明天
-    const isToday = end.toDateString() === now.toDateString();
-    
-    const tomorrow = new Date();
-    tomorrow.setDate(now.getDate() + 1);
-    const isTomorrow = end.toDateString() === tomorrow.toDateString();
-
-    // 產生日期字首 (今天 / 明天 / 月/日)
-    let datePrefix = `${end.getMonth() + 1}/${end.getDate()}`;
-    if (isToday) datePrefix = '今天';
-    if (isTomorrow) datePrefix = '明天';
-
-    // 產生時間 (例如 14:30)
     const timeStr = end.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-    
-    // 組合要發送的文案內容 (把寫死的「今天」拿掉)
-    const text = `🍱 辦公室揪團囉！\n這次吃【${activeGroup.store.name}】\n\n⏱️ 結單時間：${datePrefix} ${timeStr}\n👉 快速點餐連結：\n${window.location.href}`;
-    
-    // 將文字編碼並組合 LINE 的分享網址
+    const text = `🍱 辦公室揪團囉！\n今天吃【${activeGroup.store.name}】\n\n⏱️ 結單時間：今天 ${timeStr}\n👉 快速點餐連結：\n${window.location.href}`;
     const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
+    window.open(lineUrl, '_blank');
+  };
+
+  // ★ 新增：分享結單與請款明細
+  const handleShareSummaryToLine = () => {
+    if (summary.length === 0) return alert('目前還沒有人點餐喔！');
+
+    const totalCount = summary.reduce((a, b) => a + b.count, 0);
+    const totalAmount = Math.round(summary.reduce((a, b) => a + b.total, 0) * 10) / 10;
     
-    // 開啟新視窗 (手機上會自動觸發開啟 LINE App)
+    // 組合結單文案
+    let text = `🔴 【${activeGroup.store.name}】已結單！\n`;
+    text += `共計 ${totalCount} 份，總金額 $${totalAmount}\n`;
+    text += `----------------------\n`;
+    text += `📋 訂購明細：\n`;
+
+    // 條列出每個品項與訂購人
+    summary.forEach(item => {
+      const unitPrice = Math.round((item.total / item.count) * 10) / 10;
+      // 把訂購人串接起來，例如：Carl*2, 小明
+      const people = item.orderDetails.map(d => `${d.customer_name}${d.quantity > 1 ? `*${d.quantity}` : ''}`).join(', ');
+      
+      text += `▪️ ${item.name} ($${unitPrice}): ${people}\n`;
+    });
+
+    text += `----------------------\n`;
+    text += `再麻煩大家準備好零錢交給主揪囉！感謝！🙏`;
+
+    const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
     window.open(lineUrl, '_blank');
   };
 
   return (
     <>
-      {/* Tabs 分頁列 */}
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
         <div className="max-w-5xl mx-auto px-4 flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide">
           {todayGroups.map(group => (
@@ -117,22 +124,27 @@ export function ActiveGroupView({
 
       <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
 
-        {/* LINE 分享按鈕 */}
-        {!isExpired && (
-          <div className="flex justify-end mb-4 print:hidden animate-fadeIn">
+        {/* ★ 按鈕區塊：根據是否結單，顯示不同的分享按鈕 */}
+        <div className="flex justify-end mb-4 print:hidden animate-fadeIn">
+          {!isExpired ? (
             <button 
               onClick={handleShareToLine}
               className="flex items-center gap-2 bg-[#00B900] text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-[#00a000] transition-all hover:-translate-y-0.5 active:scale-95"
-              title="分享開團資訊到 LINE"
             >
-              {/* 這裡使用的是 LINE 官方完整的經典 Logo SVG 向量圖 */}
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.631-.63.346 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v3.516h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.282-.54 6.912-4.069 9.405-6.968 1.739-1.906 2.579-3.845 2.579-5.975z" />
-              </svg>
+              {/* 如果您沒有切成 LineIcon 元件，請把這裡換回您的 SVG 標籤 */}
+              <LineIcon className="w-5 h-5" />
               <span>分享揪團連結</span>
             </button>
-          </div>
-        )}
+          ) : (
+            <button 
+              onClick={handleShareSummaryToLine}
+              className="flex items-center gap-2 bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-gray-700 transition-all hover:-translate-y-0.5 active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span>複製結單明細至 LINE</span>
+            </button>
+          )}
+        </div>
         
         {/* 客製化輸入區 */}
         <div className={`mb-8 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -140,23 +152,7 @@ export function ActiveGroupView({
           <div className="flex flex-col sm:flex-row gap-3">
             <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：半糖少冰)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-[2] border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
             <div className="flex gap-2 flex-1">
-              
-              <input 
-                type="number" 
-                step="0.1" 
-                min="0"  
-                placeholder="金額" 
-                value={customItemPrice} 
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || Number(val) >= 0) {
-                    setCustomItemPrice(val);
-                  }
-                }} 
-                disabled={isExpired} 
-                className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" 
-              />
-
+              <input type="number" step="0.1" min="0" placeholder="金額" value={customItemPrice} onChange={(e) => { const val = e.target.value; if (val === '' || Number(val) >= 0) setCustomItemPrice(val); }} disabled={isExpired} className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
                 <button onClick={() => setCustomItemCount(c => Math.max(1, c - 1))} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>-</button>
                 <span className="w-8 text-center font-bold text-gray-800">{customItemCount}</span>
