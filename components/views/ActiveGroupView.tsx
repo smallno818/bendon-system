@@ -42,16 +42,33 @@ export function ActiveGroupView({
       });
   };
 
-  // 分享開團資訊
+  // ★ 整合更新：分享開團資訊 (加入智慧日期判斷與「這次吃」文案)
   const handleShareToLine = () => {
     const end = new Date(activeGroup.end_time);
+    const now = new Date();
+    
+    // 判斷日期
+    const isToday = end.toDateString() === now.toDateString();
+    
+    const tomorrow = new Date();
+    tomorrow.setDate(now.getDate() + 1);
+    const isTomorrow = end.toDateString() === tomorrow.toDateString();
+
+    // 預設顯示幾月幾日 (例如: 3/5)
+    let datePrefix = `${end.getMonth() + 1}/${end.getDate()}`; 
+    if (isToday) datePrefix = "今天";
+    else if (isTomorrow) datePrefix = "明天";
+
+    // 格式化時間
     const timeStr = end.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
-    const text = `🍱 辦公室揪團囉！\n今天吃【${activeGroup.store.name}】\n\n⏱️ 結單時間：今天 ${timeStr}\n👉 快速點餐連結：\n${window.location.href}`;
+    
+    // 將「今天吃」改為「這次吃」，並套用動態日期
+    const text = `🍱 辦公室揪團囉！\n這次吃【${activeGroup.store.name}】\n\n⏱️ 結單時間：${datePrefix} ${timeStr}\n👉 快速點餐連結：\n${window.location.href}`;
     const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
     window.open(lineUrl, '_blank');
   };
 
-  // ★ 新增：分享結單與請款明細
+  // 分享結單與請款明細
   const handleShareSummaryToLine = () => {
     if (summary.length === 0) return alert('目前還沒有人點餐喔！');
 
@@ -124,14 +141,13 @@ export function ActiveGroupView({
 
       <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
 
-        {/* ★ 按鈕區塊：根據是否結單，顯示不同的分享按鈕 */}
+        {/* 按鈕區塊：根據是否結單，顯示不同的分享按鈕 */}
         <div className="flex justify-end mb-4 print:hidden animate-fadeIn">
           {!isExpired ? (
             <button 
               onClick={handleShareToLine}
               className="flex items-center gap-2 bg-[#00B900] text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-[#00a000] transition-all hover:-translate-y-0.5 active:scale-95"
             >
-              {/* 如果您沒有切成 LineIcon 元件，請把這裡換回您的 SVG 標籤 */}
               <LineIcon className="w-5 h-5" />
               <span>分享揪團連結</span>
             </button>
