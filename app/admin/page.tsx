@@ -107,7 +107,6 @@ export default function AdminPage() {
   };
 
   const handleDeleteStore = async (id: number, name: string, imageUrl: string | null) => {
-    // ★ 終極防呆：去資料庫檢查有沒有「任何還沒被關閉」的團購 (不管是否已結單)
     try {
       const { data: existingGroups, error: checkError } = await supabase
         .from('daily_groups')
@@ -116,7 +115,6 @@ export default function AdminPage() {
 
       if (checkError) throw checkError;
 
-      // 只要這個店家在 daily_groups 裡面還有紀錄，代表前台還沒按「關閉此團」，就不准刪除！
       if (existingGroups && existingGroups.length > 0) {
         return alert(`❌ 無法刪除！\n「${name}」目前還有前台未關閉的團購（包含已結單但尚未請款清除的團）。\n請確認大家已請款完畢，並至前台「手動關閉」該店家的所有團購後，再嘗試刪除。`);
       }
@@ -124,11 +122,9 @@ export default function AdminPage() {
       return alert('檢查店家狀態時發生錯誤：' + e.message);
     }
 
-    // ★ 防呆第二關：通過檢查後，才跳出最終確認刪除的提示
     if (!window.confirm(`⚠️ 警告：確定要徹底刪除「${name}」嗎？\n\n這將會連帶刪除該店家的「所有菜單」，且無法復原！`)) return;
     
     try {
-      // 刪除順序：產品 -> 圖片 -> 店家本體 (因為前面擋掉了，所以確定沒有 daily_groups 關聯了)
       await supabase.from('products').delete().eq('store_id', id);
       
       if (imageUrl) {
@@ -198,11 +194,13 @@ export default function AdminPage() {
     e.target.value = '';
     if (!file || !editingStore) return;
     const reader = new FileReader();
+    
     reader.onload = async (evt) => {
       const bstr = evt.target?.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const rawData: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
       const productsToUpsert: any[] = [];
+      
       rawData.forEach((row) => {
         if (row[0] && row[1]) {
           productsToUpsert.push({ 
@@ -213,9 +211,16 @@ export default function AdminPage() {
           });
         }
       });
+
       const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'store_id, name' });
-      if (error) alert('匯入失敗:' + error.message);
-      else { alert('✅ 匯入成功'); fetchMenu(editingStore.id); }
+      
+      if (error) {
+        alert('匯入失敗:' + error.message);
+      } else { 
+        // ★ 關鍵修正：加上 await 等待最新菜單抓取完畢，再跳出成功訊息
+        await fetchMenu(editingStore.id); 
+        alert('✅ 匯入成功！畫面已更新為最新菜單。'); 
+      }
     };
     reader.readAsBinaryString(file);
   };
@@ -228,7 +233,6 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto">
         <AdminHeader onLogout={handleLogout} />
 
-        {/* 移除開團管理，只保留店家維護 */}
         <StoreForm 
           name={newStoreName}
           phone={newStorePhone}
@@ -256,7 +260,7 @@ export default function AdminPage() {
 
       {editingStore && (
         <EditMenuModal 
-          storeId={editingStore.id} // 👈 就是加上這行！
+          storeId={editingStore.id}
           storeName={editingStore.name}
           menuItems={menuItems}
           newItemName={newItemName}

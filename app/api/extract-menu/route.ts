@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     // 初始化 Gemini API (使用 gemini-1.5-flash 模型，速度快且支援視覺)
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
 
     // 設定給 AI 的提示詞 (Prompt)，強制它輸出乾淨的 JSON
     const prompt = `

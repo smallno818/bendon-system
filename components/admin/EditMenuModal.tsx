@@ -199,11 +199,13 @@ export function EditMenuModal({
                       <td className="p-4">
                         <div className="relative flex items-center">
                           <span className="absolute left-3 text-slate-400 font-bold">$</span>
-                          <input type="number" defaultValue={item.price} onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))} className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold text-slate-700" />
+                          {/* ★ 這裡加了 key={`price-${item.price}`} */}
+                          <input key={`price-${item.price}`} type="number" defaultValue={item.price} onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))} className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold text-slate-700" />
                         </div>
                       </td>
                       <td className="p-4">
-                        <input type="text" defaultValue={item.description || ''} placeholder="可留空" onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm text-slate-600" />
+                        {/* ★ 這裡加了 key={`desc-${item.description}`} */}
+                        <input key={`desc-${item.description}`} type="text" defaultValue={item.description || ''} placeholder="可留空" onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm text-slate-600" />
                       </td>
                       <td className="p-4 text-center">
                         <button onClick={() => onDeleteItem(item.id)} className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-sm">🗑️</button>
