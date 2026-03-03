@@ -66,14 +66,14 @@ export function useGroupOrders() {
     await fetchOrders(groupId);
   }, [fetchOrders]);
 
-  // --- API 動作：抓取今日開團 ---
+  // --- API 動作：抓取所有未關閉的開團 (不限日期，直到手動關閉) ---
   const fetchTodayGroups = useCallback(async () => {
-    const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
       .from('daily_groups')
       .select('*, store:stores(*)')
-      .eq('order_date', today)
-      .order('id', { ascending: true });
+      // ★ 已經把 .eq('order_date') 或是 .gte('end_time') 等日期過濾條件完全移除了
+      // 現在只要這筆群組資料還存在於資料庫（沒有被按「關閉此團」刪除），就會全部抓出來
+      .order('end_time', { ascending: true }); // 依然按照結單時間排序，快結單的排在最前面
     
     if (data) {
       setTodayGroups(data as any);
@@ -180,9 +180,33 @@ export function useGroupOrders() {
   // --- 使用者動作 ---
 
   const createOrder = async (itemName: string, itemPrice: number, quantity: number, customerName: string) => {
+    // 第一道防線：本地端初步阻擋 (為了 UI 反應快速)
     if (isExpired) throw new Error('已經超過結單時間');
     if (!activeGroupId) throw new Error('沒有選擇群組');
 
+    const currentGroup = todayGroups.find(g => g.id === activeGroupId);
+    if (!currentGroup) throw new Error('找不到該群組資料');
+
+    // ★ 第二道防線：向伺服器請求標準時間 (防止竄改本地時間)
+    try {
+      const timeRes = await fetch('/api/server-time');
+      const { now: serverTime } = await timeRes.json();
+      
+      const serverNow = new Date(serverTime).getTime();
+      const groupEnd = new Date(currentGroup.end_time).getTime();
+
+      // 用伺服器的時間來做最終裁決
+      if (serverNow > groupEnd) {
+        throw new Error('伺服器判定：已超過結單時間，無法下單！');
+      }
+    } catch (err: any) {
+      // 如果是我們自己丟出的錯誤，就原封不動往外丟
+      if (err.message.includes('伺服器判定')) throw err;
+      // 如果只是網路不穩抓不到時間，就不強制阻擋，或者您也可以選擇嚴格阻擋
+      console.warn('無法取得伺服器時間，跳過二次驗證', err);
+    }
+
+    // 通過重重考驗，才允許寫入資料庫
     const { error } = await supabase.from('orders').insert([{ 
       item_name: itemName, 
       price: itemPrice, 

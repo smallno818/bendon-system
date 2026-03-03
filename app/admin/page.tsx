@@ -107,11 +107,29 @@ export default function AdminPage() {
   };
 
   const handleDeleteStore = async (id: number, name: string, imageUrl: string | null) => {
-    if (!window.confirm(`確定要刪除「${name}」嗎？`)) return;
+    // ★ 終極防呆：去資料庫檢查有沒有「任何還沒被關閉」的團購 (不管是否已結單)
     try {
-      // 刪除順序：產品 -> 相關開團紀錄 -> 圖片 -> 店家本體
+      const { data: existingGroups, error: checkError } = await supabase
+        .from('daily_groups')
+        .select('id')
+        .eq('store_id', id);
+
+      if (checkError) throw checkError;
+
+      // 只要這個店家在 daily_groups 裡面還有紀錄，代表前台還沒按「關閉此團」，就不准刪除！
+      if (existingGroups && existingGroups.length > 0) {
+        return alert(`❌ 無法刪除！\n「${name}」目前還有前台未關閉的團購（包含已結單但尚未請款清除的團）。\n請確認大家已請款完畢，並至前台「手動關閉」該店家的所有團購後，再嘗試刪除。`);
+      }
+    } catch (e: any) {
+      return alert('檢查店家狀態時發生錯誤：' + e.message);
+    }
+
+    // ★ 防呆第二關：通過檢查後，才跳出最終確認刪除的提示
+    if (!window.confirm(`⚠️ 警告：確定要徹底刪除「${name}」嗎？\n\n這將會連帶刪除該店家的「所有菜單」，且無法復原！`)) return;
+    
+    try {
+      // 刪除順序：產品 -> 圖片 -> 店家本體 (因為前面擋掉了，所以確定沒有 daily_groups 關聯了)
       await supabase.from('products').delete().eq('store_id', id);
-      await supabase.from('daily_groups').delete().eq('store_id', id); 
       
       if (imageUrl) {
         const fileName = imageUrl.split('/').pop();
@@ -119,7 +137,10 @@ export default function AdminPage() {
       }
       await supabase.from('stores').delete().eq('id', id);
       fetchStores();
-    } catch (e) { alert('刪除失敗'); }
+      
+    } catch (e) { 
+      alert('刪除失敗，請稍後再試。'); 
+    }
   };
 
   const openEditModal = async (store: Store) => {
