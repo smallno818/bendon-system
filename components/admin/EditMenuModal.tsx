@@ -42,11 +42,12 @@ export function EditMenuModal({
 
     setIsAiLoading(true);
 
-    try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      
-      reader.onload = async () => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    
+    // 當圖片讀取完成後執行
+    reader.onload = async () => {
+      try { // ★ 這裡補上內層的 try-catch，確保錯誤一定會被抓到！
         const base64Data = reader.result?.toString().split(',')[1];
         
         const response = await fetch('/api/extract-menu', {
@@ -55,21 +56,32 @@ export function EditMenuModal({
           body: JSON.stringify({ base64Image: base64Data, mimeType: file.type })
         });
 
-        const result = await response.json();
+        // 嘗試解析 JSON，如果伺服器回傳的是 HTML (例如 404 找不到檔案)，這裡會報錯
+        let result;
+        try {
+          result = await response.json();
+        } catch (err) {
+          throw new Error(`伺服器回應異常 (HTTP ${response.status})。可能是 API 路徑錯誤或圖片超過 4MB 限制。`);
+        }
 
-        if (!response.ok) throw new Error(result.error);
+        if (!response.ok) throw new Error(result.error || '未知的 API 錯誤');
 
         if (result.menu && Array.isArray(result.menu)) {
-          // 將 AI 吐出來的結果放進「預覽狀態」中
           setAiPreviewItems(result.menu);
+        } else {
+          throw new Error('AI 回傳的格式不正確，請換一張圖片再試一次');
         }
-        setIsAiLoading(false);
-      };
-      
-    } catch (error: any) {
-      alert('AI 辨識發生錯誤: ' + error.message);
+      } catch (error: any) {
+        alert('AI 辨識失敗: ' + error.message);
+      } finally {
+        setIsAiLoading(false); // ★ 關鍵：無論成功或失敗，都一定會解除「辨識中」的狀態
+      }
+    };
+
+    reader.onerror = () => {
+      alert('圖片讀取失敗');
       setIsAiLoading(false);
-    }
+    };
   };
 
   // 2. 使用者確認無誤後，正式寫入資料庫
