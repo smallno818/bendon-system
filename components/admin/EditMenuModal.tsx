@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 type Product = {
   id: number;
@@ -8,6 +9,7 @@ type Product = {
 };
 
 type Props = {
+  storeId: number; // ★ 新增：明確傳入店家 ID
   storeName: string;
   menuItems: Product[];
   newItemName: string;
@@ -23,129 +25,209 @@ type Props = {
   onUpdateItem: (id: number, field: 'price' | 'description', value: string | number) => void;
 };
 
-export function EditMenuModal({ 
-  storeName, 
-  menuItems, 
-  newItemName, 
-  newItemPrice, 
-  newItemDescription,
-  onClose, 
-  onExcelUpload,
-  onNameChange,
-  onPriceChange,
-  onDescriptionChange,
-  onAddItem,
-  onDeleteItem,
-  onUpdateItem
+export function EditMenuModal({
+  storeId, storeName, menuItems, newItemName, newItemPrice, newItemDescription,
+  onClose, onExcelUpload, onNameChange, onPriceChange, onDescriptionChange,
+  onAddItem, onDeleteItem, onUpdateItem
 }: Props) {
+  
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiPreviewItems, setAiPreviewItems] = useState<any[] | null>(null); // ★ 新增：預覽清單狀態
+
+  // 1. 處理 AI 辨識圖片上傳 (只負責辨識，不存資料庫)
+  const handleAiMenuUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; 
+    if (!file) return;
+
+    setIsAiLoading(true);
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = async () => {
+        const base64Data = reader.result?.toString().split(',')[1];
+        
+        const response = await fetch('/api/extract-menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image: base64Data, mimeType: file.type })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) throw new Error(result.error);
+
+        if (result.menu && Array.isArray(result.menu)) {
+          // 將 AI 吐出來的結果放進「預覽狀態」中
+          setAiPreviewItems(result.menu);
+        }
+        setIsAiLoading(false);
+      };
+      
+    } catch (error: any) {
+      alert('AI 辨識發生錯誤: ' + error.message);
+      setIsAiLoading(false);
+    }
+  };
+
+  // 2. 使用者確認無誤後，正式寫入資料庫
+  const handleConfirmAiImport = async () => {
+    if (!aiPreviewItems) return;
+    setIsAiLoading(true);
+
+    try {
+      // 這裡直接使用正確的 storeId
+      const productsToUpsert = aiPreviewItems.map((item: any) => ({
+        store_id: storeId,
+        name: item.name,
+        price: Number(item.price),
+        description: item.description || null
+      }));
+
+      const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'store_id, name' });
+      
+      if (error) throw error;
+
+      alert(`✅ 成功匯入 ${productsToUpsert.length} 筆品項！請關閉視窗後重新開啟以載入最新菜單。`);
+      setAiPreviewItems(null); // 清空預覽，回到原本畫面
+      onClose(); // 匯入成功後自動關閉視窗，讓管理員重開刷新
+
+    } catch (error: any) {
+      alert('存入資料庫失敗: ' + error.message);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-6 z-50 backdrop-blur-md">
-      <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden border border-white/20">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100">
         
-        {/* Modal Header */}
-        <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-black text-slate-800">{storeName}</h2>
-            <p className="text-xs text-slate-400 font-bold mt-0.5 uppercase tracking-widest">Menu Management</p>
+        {/* 標題與操作區 */}
+        <div className="bg-slate-50 p-6 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+            <span className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-lg">📝</span>
+            {aiPreviewItems ? '👀 預覽 AI 辨識結果' : `編輯菜單：${storeName}`}
+          </h2>
+          <div className="flex gap-2">
+            {!aiPreviewItems && (
+              <>
+                {/* ★ 原始狀態下的按鈕 */}
+                <label className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2 border 
+                  ${isAiLoading ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white'}`}>
+                  <span>{isAiLoading ? '✨ 努力辨識中...' : '✨ AI 圖片辨識'}</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAiMenuUpload} disabled={isAiLoading} />
+                </label>
+                <label className="cursor-pointer bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center gap-2">
+                  <span>📊 匯入 Excel</span>
+                  <input type="file" accept=".xlsx,.csv" className="hidden" onChange={onExcelUpload} />
+                </label>
+              </>
+            )}
+            <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-200 text-slate-500 hover:bg-rose-500 hover:text-white transition-all font-bold">✕</button>
           </div>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm text-slate-400 hover:text-rose-500 transition-colors text-2xl">×</button>
         </div>
-        
-        <div className="p-8 overflow-y-auto flex-1">
-          {/* Excel Upload Area */}
-          <div className="mb-10 p-6 bg-indigo-50/50 rounded-2xl border-2 border-dashed border-indigo-100 flex flex-col items-center text-center">
-            <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-2xl mb-3">📁</div>
-            <h3 className="font-bold text-indigo-900">批次匯入菜單</h3>
-            <p className="text-xs text-indigo-400 mt-1 mb-4">支援 .xlsx, .xls (格式：品名 | 價格 | 備註)</p>
-            <label className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl cursor-pointer hover:bg-indigo-700 shadow-lg shadow-indigo-200 font-bold transition-all active:scale-95">
-              選擇檔案
-              <input type="file" accept=".xlsx, .xls" onChange={onExcelUpload} className="hidden" />
-            </label>
-          </div>
 
-          {/* Manual Add Item */}
-          <div className="space-y-4 mb-8">
-            <p className="text-sm font-black text-slate-700 ml-1">手動新增品項</p>
-            <div className="flex gap-3">
-              <input 
-                placeholder="品項名稱" 
-                value={newItemName} 
-                onChange={(e) => onNameChange(e.target.value)} 
-                className="flex-[2] h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium" 
-              />
-              <input 
-                placeholder="備註 (選填)" 
-                value={newItemDescription} 
-                onChange={(e) => onDescriptionChange(e.target.value)} 
-                className="flex-[2] h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-medium" 
-              />
-              {/* ★ 新增 step="0.1" 允許小數點 */}
-              <input 
-                placeholder="價格" 
-                type="number" 
-                step="0.1" 
-                value={newItemPrice} 
-                onChange={(e) => onPriceChange(e.target.value)} 
-                className="w-24 h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-indigo-600" 
-              />
-              <button 
-                onClick={onAddItem} 
-                className="w-11 h-11 flex items-center justify-center bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
-              >
-                ＋
-              </button>
+        {/* 內容區：根據是否有預覽資料，切換顯示畫面 */}
+        <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+          
+          {aiPreviewItems ? (
+            /* ================= AI 預覽畫面 ================= */
+            <div className="animate-fadeIn">
+              <div className="bg-amber-50 text-amber-800 border border-amber-200 p-4 rounded-xl mb-4 font-bold flex items-center gap-2">
+                <span>⚠️</span> 這是 AI 辨識的結果，尚未存入資料庫！請確認品項與價格是否正確。
+              </div>
+              
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm mb-4">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
+                      <th className="p-4 font-bold">辨識出的品項</th>
+                      <th className="p-4 font-bold">價格</th>
+                      <th className="p-4 font-bold">備註</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aiPreviewItems.map((item, index) => (
+                      <tr key={index} className="border-b border-slate-100">
+                        <td className="p-4 font-bold text-slate-700">{item.name}</td>
+                        <td className="p-4 text-indigo-600 font-bold">${item.price}</td>
+                        <td className="p-4 text-slate-500 text-sm">{item.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setAiPreviewItems(null)} className="px-6 py-3 rounded-xl bg-slate-200 text-slate-700 font-bold hover:bg-slate-300 transition-all">重新辨識 (取消)</button>
+                <button onClick={handleConfirmAiImport} disabled={isAiLoading} className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-all shadow-md disabled:bg-indigo-300">
+                  {isAiLoading ? '寫入中...' : '✅ 確認無誤，加入資料庫'}
+                </button>
+              </div>
             </div>
-          </div>
-
-          {/* Menu Table */}
-          <div className="rounded-2xl border border-slate-100 overflow-hidden">
-            <table className="w-full text-left">
-              <thead className="bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                <tr>
-                  <th className="p-4">Item Name</th>
-                  <th className="p-4">Note (Click to Edit)</th>
-                  <th className="p-4 w-28">Price</th>
-                  <th className="p-4 w-12"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {menuItems.map(item => (
-                  <tr key={item.id} className="group hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-bold text-slate-700">{item.name}</td>
-                    
+          ) : (
+            /* ================= 原始編輯菜單畫面 ================= */
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
+                    <th className="p-4 font-bold">品項名稱</th>
+                    <th className="p-4 font-bold w-32">價格</th>
+                    <th className="p-4 font-bold">備註 (隱藏欄位)</th>
+                    <th className="p-4 font-bold w-20 text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {menuItems.map(item => (
+                    <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50 group transition-colors">
+                      <td className="p-4 font-bold text-slate-700">{item.name}</td>
+                      <td className="p-4">
+                        <div className="relative flex items-center">
+                          <span className="absolute left-3 text-slate-400 font-bold">$</span>
+                          <input type="number" defaultValue={item.price} onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))} className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-bold text-slate-700" />
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <input type="text" defaultValue={item.description || ''} placeholder="可留空" onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm text-slate-600" />
+                      </td>
+                      <td className="p-4 text-center">
+                        <button onClick={() => onDeleteItem(item.id)} className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all opacity-0 group-hover:opacity-100 shadow-sm">🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                  {menuItems.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-slate-400 font-bold bg-slate-50 border-b border-slate-100">
+                        目前沒有任何菜單，請從下方手動新增，或使用 Excel / AI 圖片匯入
+                      </td>
+                    </tr>
+                  )}
+                  
+                  {/* 新增區塊固定在最後一列 */}
+                  <tr className="bg-indigo-50/30">
                     <td className="p-4">
-                      <input 
-                        type="text"
-                        defaultValue={item.description || ''}
-                        placeholder="無備註"
-                        onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)}
-                        className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none text-sm text-slate-600 transition-colors"
-                      />
+                      <input type="text" placeholder="輸入新餐點名稱..." value={newItemName} onChange={e => onNameChange(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-indigo-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold placeholder-indigo-300" />
                     </td>
-
                     <td className="p-4">
-                      {/* ★ 修改價格欄位：加入 step="0.1" 且使用 parseFloat 處理 */}
-                      <input 
-                        type="number"
-                        step="0.1"
-                        defaultValue={item.price}
-                        onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))}
-                        className="w-full font-black text-indigo-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 outline-none transition-colors"
-                      />
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3 text-indigo-400 font-bold">$</span>
+                        <input type="number" placeholder="金額" value={newItemPrice} onChange={e => onPriceChange(e.target.value)} className="w-full pl-7 pr-3 py-2.5 bg-white border border-indigo-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold placeholder-indigo-300" />
+                      </div>
                     </td>
-
                     <td className="p-4">
-                      <button onClick={() => onDeleteItem(item.id)} className="text-slate-300 hover:text-rose-500 transition-colors text-xl">×</button>
+                      <input type="text" placeholder="備註 (選填)" value={newItemDescription} onChange={e => onDescriptionChange(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-indigo-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm placeholder-indigo-300" />
+                    </td>
+                    <td className="p-4 text-center">
+                      <button onClick={onAddItem} disabled={!newItemName || !newItemPrice} className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:bg-indigo-200 disabled:cursor-not-allowed transition-all shadow-md">新增</button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
-          <button onClick={onClose} className="px-8 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-all shadow-sm">完成並關閉</button>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

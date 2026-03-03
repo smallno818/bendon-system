@@ -256,6 +256,7 @@ export default function AdminPage() {
 
       {editingStore && (
         <EditMenuModal 
+          storeId={editingStore.id} // 👈 就是加上這行！
           storeName={editingStore.name}
           menuItems={menuItems}
           newItemName={newItemName}
