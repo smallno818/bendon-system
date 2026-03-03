@@ -143,7 +143,7 @@ export function ActiveGroupView({
       <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
 
         {/* 按鈕區塊：根據是否結單，顯示不同的分享按鈕 */}
-        <div className="flex justify-end mb-4 print:hidden animate-fadeIn">
+        <div className="flex justify-end mb-4 print:hidden animate-fadeIn gap-4">
           {!isExpired ? (
             <>
             {/* ★ 新增：提早結單按鈕 */}
