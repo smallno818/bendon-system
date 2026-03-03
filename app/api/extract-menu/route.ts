@@ -3,12 +3,10 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(req: NextRequest) {
   try {
-    // 檢查金鑰是否存在
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: '系統未設定 Gemini API Key' }, { status: 500 });
     }
 
-    // 取得前端傳來的圖片 base64 資料
     const body = await req.json();
     const { base64Image, mimeType } = body;
 
@@ -16,24 +14,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '沒有收到圖片' }, { status: 400 });
     }
 
-    // 初始化 Gemini API (使用 gemini-1.5-flash 模型，速度快且支援視覺)
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+    
+    // ★ 關鍵：使用穩定且免費額度高的 gemini-1.5-flash
+    // 並強制開啟 JSON 模式，這會讓辨識準確度大幅提升！
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
+    });
 
-    // 設定給 AI 的提示詞 (Prompt)，強制它輸出乾淨的 JSON
+    // ★ 優化提示詞：給予更明確的規則，幫助 Flash 集中注意力
     const prompt = `
-      請辨識這張菜單圖片中的所有餐點品項與價格。
-      請「嚴格」輸出為 JSON 陣列格式，絕對不要包含任何 Markdown 標記（例如 \`\`\`json）、不要有任何其他說明文字，
-      也不要包含金錢符號，如果是飲料菜單，要把不同容量視為不同品項，並且把同名稱不同容量的擺在一起。
-      每個品項包含三個欄位：
-      - "name": 餐點名稱 (字串)
-      - "price": 價格 (數字，若無則填 0)
-      - "description": 備註或說明 (字串，若無則填空字串 "")
+      你是一個專業的資料輸入員。請仔細辨識這張菜單圖片中的所有「餐點品項」與「價格」。
       
-      範例格式：
+      規則：
+      1. 只需要提取餐點名稱與價格，不要包含店家名稱或營業時間。
+      2. 價格請轉換為純數字（例如：將 "100元" 轉換為 100）。若沒有標示價格，請填寫 0。
+      3. 若有大小碗、加料等說明，請填入 description 欄位；若無則填寫空字串 ""。
+      4. 如果是飲料菜單，不同容量要視為不同品項，並且把相同名稱的擺在前後項目中
+      5. 請嚴格遵守以下 JSON 陣列格式輸出：
       [
-        {"name": "排骨飯", "price": 90, "description": "附湯"},
-        {"name": "雞腿飯", "price": 100, "description": ""}
+        {"name": "餐點名稱", "price": 100, "description": "備註"}
       ]
     `;
 
@@ -44,15 +47,11 @@ export async function POST(req: NextRequest) {
       }
     };
 
-    // 呼叫 Gemini 進行辨識
     const result = await model.generateContent([prompt, imagePart]);
     const text = result.response.text();
-
-    // 清理可能的 Markdown 殘留，確保是純 JSON
-    const cleanedText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
     
-    // 解析 JSON
-    const menuData = JSON.parse(cleanedText);
+    // 因為已經強制開啟 JSON 模式，吐出來的一定是乾淨的 JSON，直接 Parse 即可！
+    const menuData = JSON.parse(text);
 
     return NextResponse.json({ menu: menuData });
 
