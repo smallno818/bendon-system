@@ -1,29 +1,18 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { AdminInput } from './ui/AdminInput';
+import { AdminButton } from './ui/AdminButton';
 
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  description: string | null;
-};
+type Product = { id: number; name: string; price: number; description: string | null; };
 
 type Props = {
-  storeId: number;
-  storeName: string;
-  menuItems: Product[];
-  newItemName: string;
-  newItemPrice: string;
-  newItemDescription: string;
-  onClose: () => void;
-  onExcelUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onNameChange: (val: string) => void;
-  onPriceChange: (val: string) => void;
-  onDescriptionChange: (val: string) => void;
-  onAddItem: () => void;
-  onDeleteItem: (id: number) => void;
+  storeId: number; storeName: string; menuItems: Product[];
+  newItemName: string; newItemPrice: string; newItemDescription: string;
+  onClose: () => void; onExcelUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onNameChange: (val: string) => void; onPriceChange: (val: string) => void; onDescriptionChange: (val: string) => void;
+  onAddItem: () => void; onDeleteItem: (id: number) => void;
   onUpdateItem: (id: number, field: 'price' | 'description', value: string | number) => void;
-  onRefresh: () => Promise<void>; // ★ 新增：重新抓取資料的函式
+  onRefresh: () => Promise<void>;
 };
 
 export function EditMenuModal({
@@ -67,20 +56,14 @@ export function EditMenuModal({
     setIsAiLoading(true);
     try {
       const productsToUpsert = aiPreviewItems.map((item: any) => ({
-        store_id: storeId,
-        name: item.name,
-        price: Number(item.price),
-        description: item.description || null
+        store_id: storeId, name: item.name, price: Number(item.price), description: item.description || null
       }));
-
       const { error } = await supabase.from('products').upsert(productsToUpsert, { onConflict: 'store_id, name' });
       if (error) throw error;
 
-      // ★ 核心修正：先執行重新抓取資料，再清空預覽，使用者就不用重開視窗了
       await onRefresh(); 
       alert(`✅ 成功匯入 ${productsToUpsert.length} 筆品項！`);
       setAiPreviewItems(null); 
-
     } catch (error: any) {
       alert('存入資料庫失敗: ' + error.message);
     } finally {
@@ -110,7 +93,8 @@ export function EditMenuModal({
                 </label>
               </>
             )}
-            <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-200 text-slate-500 hover:bg-rose-500 hover:text-white transition-all font-bold">✕</button>
+            {/* ★ 替換為共用關閉按鈕 */}
+            <AdminButton variant="icon-close" onClick={onClose}>✕</AdminButton>
           </div>
         </div>
 
@@ -139,8 +123,8 @@ export function EditMenuModal({
                 </table>
               </div>
               <div className="flex justify-end gap-3">
-                <button onClick={() => setAiPreviewItems(null)} className="px-6 py-3 rounded-xl bg-slate-200 font-bold">取消</button>
-                <button onClick={handleConfirmAiImport} disabled={isAiLoading} className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold">確認加入</button>
+                <AdminButton variant="secondary" onClick={() => setAiPreviewItems(null)}>取消</AdminButton>
+                <AdminButton variant="primary" onClick={handleConfirmAiImport} disabled={isAiLoading}>確認加入</AdminButton>
               </div>
             </div>
           ) : (
@@ -159,24 +143,33 @@ export function EditMenuModal({
                     <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50 group transition-colors">
                       <td className="p-4 font-bold text-slate-700">{item.name}</td>
                       <td className="p-4">
-                        <div className="relative flex items-center">
-                          <span className="absolute left-3 text-slate-400 font-bold">$</span>
-                          <input key={`price-${item.price}`} type="number" defaultValue={item.price} onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))} className="w-full pl-7 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none font-bold text-slate-700" />
-                        </div>
+                        {/* ★ 使用共用輸入框，帶入 $ 圖示 */}
+                        <AdminInput icon="$" key={`price-${item.price}`} type="number" defaultValue={item.price} onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))} />
                       </td>
                       <td className="p-4">
-                        <input key={`desc-${item.description}`} type="text" defaultValue={item.description || ''} placeholder="可留空" onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm text-slate-600" />
+                        <AdminInput key={`desc-${item.description}`} type="text" defaultValue={item.description || ''} placeholder="可留空" onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)} className="text-sm" />
                       </td>
                       <td className="p-4 text-center">
-                        <button onClick={() => onDeleteItem(item.id)} className="w-8 h-8 rounded-lg bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">🗑️</button>
+                        {/* ★ 替換為共用刪除按鈕 */}
+                        <AdminButton variant="icon-delete" onClick={() => onDeleteItem(item.id)}>🗑️</AdminButton>
                       </td>
                     </tr>
                   ))}
+                  
+                  {/* 新增欄位區塊 */}
                   <tr className="bg-indigo-50/30">
-                    <td className="p-4"><input type="text" value={newItemName} onChange={e => onNameChange(e.target.value)} className="w-full px-4 py-2 bg-white border border-indigo-200 rounded-xl" placeholder="餐點名稱" /></td>
-                    <td className="p-4"><input type="number" value={newItemPrice} onChange={e => onPriceChange(e.target.value)} className="w-full px-4 py-2 bg-white border border-indigo-200 rounded-xl" placeholder="價格" /></td>
-                    <td className="p-4"><input type="text" value={newItemDescription} onChange={e => onDescriptionChange(e.target.value)} className="w-full px-4 py-2 bg-white border border-indigo-200 rounded-xl" placeholder="備註" /></td>
-                    <td className="p-4"><button onClick={onAddItem} className="w-full py-2 bg-indigo-600 text-white rounded-xl font-bold">新增</button></td>
+                    <td className="p-4">
+                      <AdminInput type="text" value={newItemName} onChange={e => onNameChange(e.target.value)} className="bg-white border-indigo-200" placeholder="餐點名稱" />
+                    </td>
+                    <td className="p-4">
+                      <AdminInput icon="$" type="number" value={newItemPrice} onChange={e => onPriceChange(e.target.value)} className="bg-white border-indigo-200" placeholder="價格" />
+                    </td>
+                    <td className="p-4">
+                      <AdminInput type="text" value={newItemDescription} onChange={e => onDescriptionChange(e.target.value)} className="bg-white border-indigo-200 text-sm" placeholder="備註" />
+                    </td>
+                    <td className="p-4">
+                      <AdminButton variant="primary" onClick={onAddItem} className="w-full" disabled={!newItemName || !newItemPrice}>新增</AdminButton>
+                    </td>
                   </tr>
                 </tbody>
               </table>

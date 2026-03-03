@@ -1,14 +1,11 @@
 import React from 'react';
+import { AdminInput } from './ui/AdminInput';
+import { AdminButton } from './ui/AdminButton';
 
 type Props = {
-  name: string;
-  phone: string;
-  uploading: boolean;
-  imagePreview: string;
-  onNameChange: (val: string) => void;
-  onPhoneChange: (val: string) => void;
-  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSubmit: () => void;
+  name: string; phone: string; uploading: boolean; imagePreview: string;
+  onNameChange: (val: string) => void; onPhoneChange: (val: string) => void;
+  onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void; onSubmit: () => void;
 };
 
 export function StoreForm({ name, phone, uploading, imagePreview, onNameChange, onPhoneChange, onImageUpload, onSubmit }: Props) {
@@ -22,43 +19,29 @@ export function StoreForm({ name, phone, uploading, imagePreview, onNameChange, 
       <div className="flex flex-col lg:flex-row gap-5 items-end">
         <div className="flex-[2] w-full space-y-1.5">
           <label className="text-sm font-bold text-slate-600 ml-1">店家名稱</label>
-          <input 
-            value={name} 
-            onChange={(e) => onNameChange(e.target.value)} 
-            placeholder="必填，如：麥當勞" 
-            className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium" 
-          />
+          {/* ★ 使用共用輸入框 */}
+          <AdminInput value={name} onChange={(e) => onNameChange(e.target.value)} placeholder="必填，如：麥當勞" className="h-11" />
         </div>
         
         <div className="flex-[1.5] w-full space-y-1.5">
           <label className="text-sm font-bold text-slate-600 ml-1">聯絡電話</label>
-          <input 
-            value={phone} 
-            onChange={(e) => onPhoneChange(e.target.value)} 
-            placeholder="選填" 
-            className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium" 
-          />
+          {/* ★ 使用共用輸入框 */}
+          <AdminInput value={phone} onChange={(e) => onPhoneChange(e.target.value)} placeholder="選填" className="h-11" />
         </div>
         
         <div className="flex-1 w-full space-y-1.5">
           <label className="text-sm font-bold text-slate-600 ml-1">店家圖示</label>
           <label className="flex items-center justify-center gap-2 h-11 w-full bg-white border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all group">
-            <span className="text-slate-400 group-hover:text-indigo-500 transition-colors">
-              {uploading ? '⏳' : '📷'}
-            </span>
-            <span className="text-sm font-bold text-slate-500 group-hover:text-indigo-600">
-              {uploading ? '處理中' : '選擇照片'}
-            </span>
+            <span className="text-slate-400 group-hover:text-indigo-500">{uploading ? '⏳' : '📷'}</span>
+            <span className="text-sm font-bold text-slate-500 group-hover:text-indigo-600">{uploading ? '處理中' : '選擇照片'}</span>
             <input type="file" accept="image/*" onChange={onImageUpload} className="hidden" />
           </label>
         </div>
 
-        <button 
-          onClick={onSubmit} 
-          className="w-full lg:w-auto px-8 h-11 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95"
-        >
+        {/* ★ 使用共用按鈕 */}
+        <AdminButton variant="primary" onClick={onSubmit} className="w-full lg:w-auto h-11 px-8 shadow-indigo-200 shadow-lg hover:shadow-indigo-300">
           儲存更新
-        </button>
+        </AdminButton>
       </div>
       
       {imagePreview && (
