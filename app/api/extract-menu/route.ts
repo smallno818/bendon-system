@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     
     // ★ 根據您的清單，直接使用最強的 2.5 Pro 模型
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-pro",
+      model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
       }
