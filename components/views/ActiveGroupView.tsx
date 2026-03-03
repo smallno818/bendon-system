@@ -19,12 +19,13 @@ type Props = {
   onOrder: (item: string, price: number, qty: number) => Promise<void>;
   onDeleteOrder: (orderId: number, name: string) => Promise<void>;
   onCloseGroup: () => Promise<void>;
+  onCloseGroupEarly: () => Promise<void>; // ★ 補上這行
   onScrollTop: () => void;
 };
 
 export function ActiveGroupView({
   todayGroups, activeGroupId, activeGroup, menu, summary, timeLeft, isExpired,
-  onSwitchGroup, onOpenStoreSelector, onOrder, onDeleteOrder, onCloseGroup, onScrollTop
+  onSwitchGroup, onOpenStoreSelector, onOrder, onDeleteOrder, onCloseGroup, onScrollTop, onCloseGroupEarly
 }: Props) {
   
   const [customItemName, setCustomItemName] = useState('');
@@ -144,6 +145,18 @@ export function ActiveGroupView({
         {/* 按鈕區塊：根據是否結單，顯示不同的分享按鈕 */}
         <div className="flex justify-end mb-4 print:hidden animate-fadeIn">
           {!isExpired ? (
+            <>
+            {/* ★ 新增：提早結單按鈕 */}
+              <button 
+                onClick={async () => {
+                  if (window.confirm('確定要立刻結單嗎？\n大家將無法再新增訂單！')) {
+                    await onCloseGroupEarly();
+                  }
+                }}
+                className="flex items-center gap-2 bg-amber-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-amber-600 transition-all hover:-translate-y-0.5 active:scale-95"
+              >
+                <span>⏱️ 提早結單</span>
+              </button>
             <button 
               onClick={handleShareToLine}
               className="flex items-center gap-2 bg-[#00B900] text-white px-5 py-2.5 rounded-xl font-bold shadow-sm hover:shadow-md hover:bg-[#00a000] transition-all hover:-translate-y-0.5 active:scale-95"
@@ -151,6 +164,8 @@ export function ActiveGroupView({
               <LineIcon className="w-5 h-5" />
               <span>分享揪團連結</span>
             </button>
+            </>
+            
           ) : (
             <button 
               onClick={handleShareSummaryToLine}

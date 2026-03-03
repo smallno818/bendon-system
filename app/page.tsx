@@ -13,7 +13,7 @@ export default function Home() {
   const {
     todayGroups, activeGroupId, activeGroup, storeList, menu, summary, 
     loading, timeLeft, isExpired,
-    switchGroup, createOrder, deleteOrder, createGroup, closeGroup
+    switchGroup, createOrder, deleteOrder, createGroup, closeGroup, closeGroupEarly
   } = useGroupOrders();
 
   // 2. 本地 UI 狀態
@@ -122,6 +122,7 @@ export default function Home() {
             onDeleteOrder={handleDeleteSubmit}
             onCloseGroup={handleCloseGroupSubmit}
             onScrollTop={scrollToTop}
+            onCloseGroupEarly={closeGroupEarly}
           />
         ) : null}
       </div>

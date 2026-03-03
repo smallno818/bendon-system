@@ -257,6 +257,24 @@ export function useGroupOrders() {
     // 3. 本地也立刻執行刪除邏輯，不依賴 Real-time 回傳，確保自己這台最順
     setTodayGroups((prev) => prev.filter(g => g.id !== activeGroupId));
   };
+  // --- ★ 新增：提早結單 (將結單時間改為現在) ---
+  const closeGroupEarly = async () => {
+    if (!activeGroupId) return;
+    
+    // 取得當下的 ISO 時間字串
+    const now = new Date().toISOString();
+    
+    // 去資料庫更新這個群組的 end_time
+    const { error } = await supabase
+      .from('daily_groups')
+      .update({ end_time: now })
+      .eq('id', activeGroupId);
+
+    if (error) throw error;
+    
+    // 更新完後重新抓取群組資料，讓畫面瞬間變成「已結單」
+    await fetchTodayGroups(); 
+  };
 
   return {
     todayGroups,
@@ -274,5 +292,6 @@ export function useGroupOrders() {
     deleteOrder,
     createGroup,
     closeGroup,
+    closeGroupEarly, // ★ 記得把它 return 出去
   };
 }
