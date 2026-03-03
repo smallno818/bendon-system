@@ -274,6 +274,7 @@ export default function AdminPage() {
           onAddItem={handleAddSingleItem}
           onDeleteItem={handleDeleteItem}
           onUpdateItem={handleUpdateItem} 
+          onRefresh={() => fetchMenu(editingStore.id)} // ★ 補上這行，AI 存完後就會呼叫 fetchMenu 更新列表
         />
       )}
     </div>
