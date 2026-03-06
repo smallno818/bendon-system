@@ -128,21 +128,24 @@ export function useGroupOrders() {
     const counts: Record<number, number> = {};
     if (recentHistory) {
       recentHistory.forEach(h => {
-        counts[h.store_id] = (counts[h.store_id] || 0) + 1;
+        const sid = Number(h.store_id); // 確保 ID 是數字
+        counts[sid] = (counts[sid] || 0) + 1;
       });
     }
 
     if (storesData) {
-      // 4. ★ 最關鍵的一步：把次數合併到店家資料中
+      // 4. ★ 強制合併邏輯
       const enrichedStores = storesData.map(store => {
-        const finalCount = counts[store.id] || 0;
-        return {
-          ...store,
-          recentCount: finalCount // 確保這個屬性一定會被建立
-        };
+        const storeId = Number(store.id);
+        const count = counts[storeId] || 0;
+        
+        // 這裡直接建立一個新的物件，並明確賦予 recentCount 屬性
+        return Object.assign({}, store, {
+          recentCount: count
+        });
       });
       
-      console.log("最終檢查：", enrichedStores); // 我們再印一次看看
+      console.log("🛠️ 最終檢查 (逐筆檢查):", enrichedStores[0]); // 印出第一筆看看
       setStoreList(enrichedStores);
     }
   }, []);
