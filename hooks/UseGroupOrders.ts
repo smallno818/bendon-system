@@ -119,10 +119,13 @@ export function useGroupOrders() {
     const fourteenDaysAgo = new Date();
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-    const { data: recentHistory } = await supabase
+    const { data: recentHistory, error: historyError } = await supabase // 順便把 error 抓出來看
       .from('store_history')
       .select('store_id')
       .gte('created_at', fourteenDaysAgo.toISOString());
+
+    // ★ 檢查點 1：印出歷史紀錄
+    console.log("1. 抓到的歷史紀錄：", recentHistory, "錯誤訊息：", historyError);
 
     // 3. 計算各店家開團次數
     const counts: Record<number, number> = {};
@@ -138,6 +141,9 @@ export function useGroupOrders() {
         ...store,
         recentCount: counts[store.id] || 0
       }));
+
+      // ★ 檢查點 2：印出最終合併的店家清單
+      console.log("2. 最終店家清單 (請點開看裡面有沒有 recentCount)：", enrichedStores);
       setStoreList(enrichedStores);
     }
   }, []);
