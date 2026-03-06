@@ -282,17 +282,25 @@ export function useGroupOrders() {
   const closeGroup = async () => {
     if (!activeGroupId) return;
 
-    // ★ 新增邏輯：判斷是否要將此團加入歷史紀錄 (已結單 且 訂單有內容)
+    // 取得當前選中團購的即時資料
     const currentGroup = todayGroups.find(g => g.id === activeGroupId);
+    
     if (currentGroup) {
+      // 1. 檢查是否結單
       const now = new Date().getTime();
       const end = new Date(currentGroup.end_time).getTime();
-      
-      const isGroupExpired = now >= end; // 條件1：是否已經結單
-      const hasOrders = orders.length > 0; // 條件2：是否有訂單紀錄 (因為是在 active 的畫面按下關閉，orders 狀態裡面的資料剛好就是這團的訂單)
+      const isGroupExpired = now >= end;
 
+      // 2. ★ 嚴謹檢查：直接從資料庫確認該團是否有訂單，不依賴本地 orders 狀態
+      const { count } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('group_id', activeGroupId);
+
+      const hasOrders = (count || 0) > 0;
+
+      // 條件符合才寫入歷史
       if (isGroupExpired && hasOrders) {
-        // 符合條件才寫入歷史表
         await supabase.from('store_history').insert([{ store_id: currentGroup.store_id }]);
       }
     }
