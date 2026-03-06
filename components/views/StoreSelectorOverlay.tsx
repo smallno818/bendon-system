@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from 'react'; // ★ 新增：引入 useState
 import { Store } from '@/types';
 import { StoreCard } from '@/components/StoreCard';
 
@@ -11,10 +11,8 @@ type Props = {
 };
 
 export function StoreSelectorOverlay({ storeList, inputEndDateTime, setInputEndDateTime, onStoreSelect, onClose }: Props) {
-  // ★ 新增狀態：控制目前選中的頁籤
+  // ★ 新增功能：控制目前選中的頁籤，並過濾店家清單
   const [activeTab, setActiveTab] = useState<'lunch' | 'beverage'>('lunch');
-
-  // ★ 根據頁籤過濾店家 (為了相容舊資料，只要不是 beverage 的我們都當成 lunch)
   const filteredStores = storeList.filter(store => 
     activeTab === 'beverage' ? store.category === 'beverage' : store.category !== 'beverage'
   );
@@ -22,7 +20,7 @@ export function StoreSelectorOverlay({ storeList, inputEndDateTime, setInputEndD
   return (
     <div className="fixed inset-0 z-50 bg-gray-50 overflow-y-auto animate-fadeIn">
       <div className="max-w-6xl mx-auto p-6 min-h-screen">
-        <div className="flex justify-between items-center mb-6 sticky top-0 bg-gray-50/95 backdrop-blur py-4 z-10 border-b border-gray-200">
+        <div className="flex justify-between items-center mb-8 sticky top-0 bg-gray-50/95 backdrop-blur py-4 z-10 border-b border-gray-200">
           <h2 className="text-3xl font-black text-gray-800">🎉 加開新團購</h2>
           <button 
             onClick={onClose}
@@ -32,8 +30,7 @@ export function StoreSelectorOverlay({ storeList, inputEndDateTime, setInputEndD
           </button>
         </div>
 
-        {/* 時間設定區 */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center mb-10">
           <div className="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-2 w-full max-w-md">
             <label className="text-sm font-bold text-indigo-800 flex items-center gap-2">
               <span>⏱️</span>
@@ -48,7 +45,7 @@ export function StoreSelectorOverlay({ storeList, inputEndDateTime, setInputEndD
           </div>
         </div>
 
-        {/* ★ 新增：分類切換分頁 (Tabs) */}
+        {/* ★ 新增功能：分類切換分頁 (Tabs) */}
         <div className="flex justify-center mb-8">
           <div className="bg-gray-200/80 p-1.5 rounded-2xl inline-flex shadow-inner">
             <button 
@@ -74,8 +71,8 @@ export function StoreSelectorOverlay({ storeList, inputEndDateTime, setInputEndD
           </div>
         </div>
 
-        {/* 顯示過濾後的店家卡片 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
+          {/* ★ 新增功能：改用 filteredStores 來渲染，並加上沒資料時的提示 */}
           {filteredStores.length > 0 ? (
             filteredStores.map(store => (
               <StoreCard 
@@ -88,7 +85,7 @@ export function StoreSelectorOverlay({ storeList, inputEndDateTime, setInputEndD
             ))
           ) : (
             <div className="col-span-full py-12 text-center text-gray-400 font-bold">
-              目前這個分類還沒有店家喔！趕快去後台新增吧 🏃‍♂️
+              目前這個分類還沒有店家喔！
             </div>
           )}
         </div>
