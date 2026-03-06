@@ -7,8 +7,16 @@ import { EmptyStateView } from '@/components/views/EmptyStateView';
 import { StoreSelectorOverlay } from '@/components/views/StoreSelectorOverlay';
 import { ActiveGroupView } from '@/components/views/ActiveGroupView';
 import { StartGroupModal } from '@/components/StartGroupModal';
+import MaintenanceView from '@/components/MaintenanceView';
 
 export default function Home() {
+  const isDev = process.env.NODE_ENV === 'development';
+  const isMaintenance = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true';
+
+  // 只有在「非開發環境」且「開啟維護模式」時才攔截
+  if (isMaintenance && !isDev) {
+    return <MaintenanceView />;
+  }
   // 1. 取得所有資料與邏輯
   const {
     todayGroups, activeGroupId, activeGroup, storeList, menu, summary, 
