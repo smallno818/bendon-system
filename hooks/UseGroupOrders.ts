@@ -115,17 +115,14 @@ export function useGroupOrders() {
     // 1. 抓取所有店家
     const { data: storesData } = await supabase.from('stores').select('*').order('id');
     
-    // ★ 修改：2. 改從新的歷史紀錄表 (store_history) 抓取近 14 天的資料
+    // 2. 抓取近 14 天的歷史紀錄
     const fourteenDaysAgo = new Date();
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-    const { data: recentHistory, error: historyError } = await supabase // 順便把 error 抓出來看
+    const { data: recentHistory } = await supabase
       .from('store_history')
       .select('store_id')
       .gte('created_at', fourteenDaysAgo.toISOString());
-
-    // ★ 檢查點 1：印出歷史紀錄
-    console.log("1. 抓到的歷史紀錄：", recentHistory, "錯誤訊息：", historyError);
 
     // 3. 計算各店家開團次數
     const counts: Record<number, number> = {};
@@ -136,14 +133,16 @@ export function useGroupOrders() {
     }
 
     if (storesData) {
-      // 4. 將次數合併到店家資料中
-      const enrichedStores = storesData.map(store => ({
-        ...store,
-        recentCount: counts[store.id] || 0
-      }));
-
-      // ★ 檢查點 2：印出最終合併的店家清單
-      console.log("2. 最終店家清單 (請點開看裡面有沒有 recentCount)：", enrichedStores);
+      // 4. ★ 最關鍵的一步：把次數合併到店家資料中
+      const enrichedStores = storesData.map(store => {
+        const finalCount = counts[store.id] || 0;
+        return {
+          ...store,
+          recentCount: finalCount // 確保這個屬性一定會被建立
+        };
+      });
+      
+      console.log("最終檢查：", enrichedStores); // 我們再印一次看看
       setStoreList(enrichedStores);
     }
   }, []);
