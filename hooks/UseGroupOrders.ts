@@ -229,6 +229,11 @@ export function useGroupOrders() {
   };
 
   const createGroup = async (storeId: number, endTime: string, groupName: string) => {
+    // ★ 新增：檢查開團數量限制 (最後一道防線)
+    if (todayGroups.length >= 5) {
+      throw new Error('同時最多只能開啟 5 個團購！請先關閉其他團購。');
+    }
+    
     const todayStr = new Date().toISOString().split('T')[0];
     const fullEndDateTime = new Date(endTime).toISOString();
 

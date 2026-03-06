@@ -67,6 +67,10 @@ export default function Home() {
 
   // 點擊卡片邏輯 (統一處理)
   const handleCardClick = (storeId: number) => {
+    // ★ 新增：在點擊店家卡片準備開團前，先檢查數量
+    if (todayGroups.length >= 5) {
+      return alert('❌ 目前同時開團數量已達上限 (5 個)！\n請先將部分團購結單並刪除後，再開啟新團。');
+    }
     if (inputEndDateTime) {
       if (new Date(inputEndDateTime).getTime() <= new Date().getTime()) {
         return alert('❌ 設定的結單時間已經過了，請選擇未來的時間！');
@@ -125,7 +129,14 @@ export default function Home() {
             timeLeft={timeLeft}
             isExpired={isExpired}
             onSwitchGroup={switchGroup}
-            onOpenStoreSelector={() => setShowStoreSelector(true)}
+            // ★ 修改這裡：在打開店家選擇牆之前，先檢查數量
+            onOpenStoreSelector={() => {
+              if (todayGroups.length >= 5) {
+                alert('❌ 目前同時開團數量已達上限 (5 個)！\n請先將部分團購結單並刪除後，再開啟新團。');
+              } else {
+                setShowStoreSelector(true);
+              }
+            }}
             onOrder={handleOrderSubmit}
             onDeleteOrder={handleDeleteSubmit}
             onCloseGroup={handleCloseGroupSubmit}
