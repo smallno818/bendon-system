@@ -1,0 +1,19 @@
+id,name,image_url,created_at,phone,category
+4,甲一飯包,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772012778441.JPEG,2026-02-25 08:25:39.952392+00,065890222,'lunch'
+5,好口味,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772012872558.JPEG,2026-02-25 09:05:04.164132+00,065838666,'lunch'
+7,哈咖叭,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772010997296.JPEG,2026-02-25 09:16:33.328591+00,065934565,'lunch'
+8,百禾,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772523828694.JPG,2026-02-25 09:18:16.058062+00,065832567,'lunch'
+9,皇聖食堂,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772011212351.JPEG,2026-02-25 09:20:12.625034+00,0989033854,'lunch'
+10,曾福記,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772011310404.JPEG,2026-02-25 09:21:51.947961+00,065811866,'lunch'
+11,港口,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772011427943.JPEG,2026-02-25 09:23:43.136142+00,065899222,'lunch'
+12,饟饟,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772011545399.JPEG,2026-02-25 09:25:42.184279+00,065986986,'lunch'
+13,鮮饗宴,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772011633948.JPEG,2026-02-25 09:27:08.446176+00,065891599,'lunch'
+14,燒臘,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772011730692.JPEG,2026-02-25 09:28:45.951224+00,,'lunch'
+15,雄仔廚房,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772011845150.JPEG,2026-02-25 09:30:40.667671+00,0977352388,'lunch'
+20,超吉燒肉,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772013040257.JPEG,2026-02-25 09:50:34.361914+00,065894511,'lunch'
+29,倷食廚房,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772013944351.JPEG,2026-02-25 10:05:44.54072+00,065839580,'lunch'
+30,八方雲集,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772072993872.JPEG,2026-02-26 02:29:49.744045+00,065935200,'lunch'
+31,義朵拉,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772073487688.JPEG,2026-02-26 02:38:02.412311+00,065115650,'lunch'
+32,巧自然,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772097921669.JPG,2026-02-26 09:25:16.028113+00,065893456,beverage
+33,茶寶,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772098118573.JPG,2026-02-26 09:28:32.66052+00,,beverage
+36,池上飯包 新市店,https://aarmmiqoczteepyszkwv.supabase.co/storage/v1/object/public/stores_picture/1772785005033.JPEG,2026-03-06 08:16:49.057936+00,065895353,'lunch'

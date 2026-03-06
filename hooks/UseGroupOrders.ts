@@ -112,8 +112,34 @@ export function useGroupOrders() {
 
   // --- API 動作：抓取店家列表 ---
   const fetchStores = useCallback(async () => {
-    const { data } = await supabase.from('stores').select('*').order('id');
-    if (data) setStoreList(data);
+    // 1. 抓取所有店家
+    const { data: storesData } = await supabase.from('stores').select('*').order('id');
+    
+    // ★ 修改：2. 改從新的歷史紀錄表 (store_history) 抓取近 14 天的資料
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+    const { data: recentHistory } = await supabase
+      .from('store_history')
+      .select('store_id')
+      .gte('created_at', fourteenDaysAgo.toISOString());
+
+    // 3. 計算各店家開團次數
+    const counts: Record<number, number> = {};
+    if (recentHistory) {
+      recentHistory.forEach(h => {
+        counts[h.store_id] = (counts[h.store_id] || 0) + 1;
+      });
+    }
+
+    if (storesData) {
+      // 4. 將次數合併到店家資料中
+      const enrichedStores = storesData.map(store => ({
+        ...store,
+        recentCount: counts[store.id] || 0
+      }));
+      setStoreList(enrichedStores);
+    }
   }, []);
 
   // --- 倒數計時邏輯 ---
@@ -250,6 +276,21 @@ export function useGroupOrders() {
 
   const closeGroup = async () => {
     if (!activeGroupId) return;
+
+    // ★ 新增邏輯：判斷是否要將此團加入歷史紀錄 (已結單 且 訂單有內容)
+    const currentGroup = todayGroups.find(g => g.id === activeGroupId);
+    if (currentGroup) {
+      const now = new Date().getTime();
+      const end = new Date(currentGroup.end_time).getTime();
+      
+      const isGroupExpired = now >= end; // 條件1：是否已經結單
+      const hasOrders = orders.length > 0; // 條件2：是否有訂單紀錄 (因為是在 active 的畫面按下關閉，orders 狀態裡面的資料剛好就是這團的訂單)
+
+      if (isGroupExpired && hasOrders) {
+        // 符合條件才寫入歷史表
+        await supabase.from('store_history').insert([{ store_id: currentGroup.store_id }]);
+      }
+    }
     
     // 1. 先刪除訂單
     await supabase.from('orders').delete().eq('group_id', activeGroupId);
