@@ -24,6 +24,7 @@ export default function AdminPage() {
   // 新增店家相關
   const [newStoreName, setNewStoreName] = useState('');
   const [newStorePhone, setNewStorePhone] = useState(''); 
+  const [newStoreCategory, setNewStoreCategory] = useState('lunch');
   const [newStoreImage, setNewStoreImage] = useState(''); 
   const [uploading, setUploading] = useState(false);
   
@@ -94,7 +95,7 @@ export default function AdminPage() {
     const finalImageUrl = newStoreImage !== '' ? newStoreImage : (existingStore ? existingStore.image_url : null);
 
     const { error } = await supabase.from('stores').upsert([{ 
-      name: newStoreName.trim(), image_url: finalImageUrl, phone: finalPhone
+      name: newStoreName.trim(), image_url: finalImageUrl, phone: finalPhone, category: newStoreCategory // ★ 新增這行寫入資料庫
     }], { onConflict: 'name' });
 
     if (!error) {
@@ -236,10 +237,12 @@ export default function AdminPage() {
         <StoreForm 
           name={newStoreName}
           phone={newStorePhone}
+          category={newStoreCategory} // ★ 新增
           uploading={uploading}
           imagePreview={newStoreImage}
           onNameChange={setNewStoreName}
           onPhoneChange={setNewStorePhone}
+          onCategoryChange={setNewStoreCategory} // ★ 新增
           onImageUpload={handleImageUpload}
           onSubmit={handleAddStore}
         />
