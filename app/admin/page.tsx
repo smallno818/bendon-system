@@ -11,7 +11,7 @@ import { EditMenuModal } from '@/components/admin/EditMenuModal';
 import { LoginPage } from '@/components/admin/LoginPage';
 
 // 型別定義
-type Store = { id: number; name: string; image_url: string | null; phone: string | null; };
+type Store = { id: number; name: string; image_url: string | null; phone: string | null; category?: string; };
 type Product = { id: number; store_id: number; name: string; price: number; description: string | null; };
 
 export default function AdminPage() {
@@ -254,6 +254,7 @@ export default function AdminPage() {
               name={store.name}
               phone={store.phone}
               imageUrl={store.image_url}
+              category={store.category} // ★ 新增這行把資料傳進去
               onEdit={() => openEditModal(store)}
               onDelete={() => handleDeleteStore(store.id, store.name, store.image_url)}
             />

@@ -6,11 +6,12 @@ type Props = {
   name: string;
   phone: string | null;
   imageUrl: string | null;
+  category?: string; // ★ 新增：接收分類資料
   onEdit: () => void;
   onDelete: () => void;
 };
 
-export function StoreCard({ name, phone, imageUrl, onEdit, onDelete }: Props) {
+export function StoreCard({ name, phone, imageUrl, category, onEdit, onDelete }: Props) {
   // ★ 新增狀態：控制大圖彈窗是否開啟
   const [isImageOpen, setIsImageOpen] = useState(false);
 
@@ -50,7 +51,13 @@ export function StoreCard({ name, phone, imageUrl, onEdit, onDelete }: Props) {
 
         {/* === 店家資訊區 === */}
         <div className="p-6 flex-1 flex flex-col bg-white">
-          <h3 className="text-xl font-bold text-slate-800 mb-1">{name}</h3>
+          <h3 className="text-xl font-bold text-slate-800 mb-1">
+            {name}
+            {/* ★ 新增功能：顯示分類標籤 */}
+            <span className="ml-2 text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-md font-bold align-middle">
+              {category === 'beverage' ? '🥤 飲料' : '🍱 午餐'}
+            </span>
+          </h3>
           <p className="text-slate-500 text-sm font-medium mb-6 flex items-center gap-2">
             <span>📞</span> {phone || '未提供電話'}
           </p>
