@@ -4,6 +4,7 @@ type Props = {
   name: string;
   imageUrl: string | null;
   phone: string | null;
+  recentCount?: number;
   onSelect: () => void;
 };
 

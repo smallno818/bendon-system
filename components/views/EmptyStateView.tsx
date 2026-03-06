@@ -74,6 +74,7 @@ export function EmptyStateView({ storeList, inputEndDateTime, setInputEndDateTim
               name={store.name} 
               imageUrl={store.image_url} 
               phone={store.phone} 
+              recentCount={store.recentCount}
               onSelect={() => onStoreSelect(store.id)} 
             />
           ))

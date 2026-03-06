@@ -6,6 +6,7 @@ export type Store = {
   image_url: string | null; 
   phone: string | null; 
   category?: string; // ★ 新增這行：lunch 或 beverage
+  recentCount?: number;
 };
 
 export type Product = { 
