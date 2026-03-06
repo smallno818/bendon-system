@@ -8,7 +8,7 @@ type Props = {
   onSelect: () => void;
 };
 
-export function StoreCard({ name, imageUrl, phone, onSelect }: Props) {
+export function StoreCard({ name, imageUrl, phone, recentCount, onSelect }: Props) {
   return (
     <div 
       onClick={onSelect}
@@ -26,10 +26,18 @@ export function StoreCard({ name, imageUrl, phone, onSelect }: Props) {
             🏠
           </div>
         )}
+        {/* ★ 關鍵修正：確保 z-10 讓標籤浮在圖片上方 ★ */}
+        {recentCount !== undefined && recentCount > 0 && (
+          <div className="absolute top-3 left-3 z-10 bg-rose-500/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-md backdrop-blur-sm">
+            🔥 近14天開過 {recentCount} 次
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
           <span className="text-white font-bold text-sm">點擊選擇此店家</span>
         </div>
       </div>
+
+      
 
       <div className="p-5 flex flex-col flex-1">
         <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-indigo-600 transition-colors">{name}</h3>
