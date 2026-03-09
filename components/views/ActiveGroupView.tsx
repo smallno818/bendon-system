@@ -16,7 +16,7 @@ type Props = {
   
   onSwitchGroup: (groupId: number, storeId: number) => void;
   onOpenStoreSelector: () => void;
-  onOrder: (item: string, price: number, qty: number) => Promise<void>;
+  onOrder: (item: string, price: number, qty: number, remark?: string) => Promise<void>;
   onDeleteOrder: (orderId: number, name: string) => Promise<void>;
   onCloseGroup: () => Promise<void>;
   onCloseGroupEarly: () => Promise<void>; // ★ 補上這行
@@ -32,14 +32,18 @@ export function ActiveGroupView({
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [customItemCount, setCustomItemCount] = useState(1);
   const [showLargeImage, setShowLargeImage] = useState(false);
+  const [customItemRemark, setCustomItemRemark] = useState(''); // ★ 新增狀態
+  // ★ 新增：控制客製化區塊是否展開的狀態 (預設為 false 收合)
+  const [isCustomExpanded, setIsCustomExpanded] = useState(false);
 
   const handleCustomOrder = () => {
     if (!customItemName || !customItemPrice) return alert('請輸入完整內容與金額');
-    onOrder(customItemName, parseFloat(customItemPrice), customItemCount)
+    onOrder(customItemName, parseFloat(customItemPrice), customItemCount, customItemRemark)
       .then(() => {
         setCustomItemName('');
         setCustomItemPrice('');
         setCustomItemCount(1);
+        setCustomItemRemark(''); // ★ 清空
       });
   };
 
@@ -86,7 +90,9 @@ export function ActiveGroupView({
     summary.forEach(item => {
       const unitPrice = Math.round((item.total / item.count) * 10) / 10;
       // 把訂購人串接起來，例如：Carl*2, 小明
-      const people = item.orderDetails.map(d => `${d.customer_name}${d.quantity > 1 ? `*${d.quantity}` : ''}`).join(', ');
+      const people = item.orderDetails.map(d => 
+        `${d.customer_name}${d.remark ? `(${d.remark})` : ''}${d.quantity > 1 ? `*${d.quantity}` : ''}`
+      ).join(', ');
       
       text += `▪️ ${item.name} ($${unitPrice}): ${people}\n`;
     });
@@ -177,27 +183,46 @@ export function ActiveGroupView({
           )}
         </div>
         
-        {/* 客製化輸入區 */}
-        <div className={`mb-8 bg-white p-5 rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div className="flex items-center gap-2 mb-3"><span className="text-xl font-bold text-gray-700">✏️ 客製化 / 隱藏版 ({activeGroup.store.name})</span></div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input type="text" placeholder={isExpired ? "已停止下單" : "輸入需求 (例：半糖少冰)"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-[2] border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-            <div className="flex gap-2 flex-1">
-              <input type="number" step="0.1" min="0" placeholder="金額" value={customItemPrice} onChange={(e) => { const val = e.target.value; if (val === '' || Number(val) >= 0) setCustomItemPrice(val); }} disabled={isExpired} className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
-              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
-                <button onClick={() => setCustomItemCount(c => Math.max(1, c - 1))} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>-</button>
-                <span className="w-8 text-center font-bold text-gray-800">{customItemCount}</span>
-                <button onClick={() => setCustomItemCount(c => c + 1)} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>+</button>
-              </div>
-              <button disabled={isExpired} onClick={handleCustomOrder} className={`flex-1 px-4 py-3 rounded-lg font-bold transition shadow-sm whitespace-nowrap ${isExpired ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}>{isExpired ? '已結單' : '加入'}</button>
+        {/* 客製化輸入區 (預設收合) */}
+        <div className={`mb-8 bg-white rounded-xl border-2 border-dashed border-blue-200 shadow-sm print:hidden transition-all duration-300 ${isExpired ? 'opacity-50 pointer-events-none' : ''}`}>
+          
+          {/* ★ 展開/收合切換按鈕 */}
+          <button 
+            onClick={() => setIsCustomExpanded(!isCustomExpanded)}
+            className="w-full flex items-center justify-between p-4 focus:outline-none hover:bg-blue-50/50 transition-colors rounded-xl"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-gray-700">✏️ 找不到餐點？手動新增 / 客製化餐點</span>
             </div>
-          </div>
+            <span className="text-gray-500 font-bold bg-gray-100 px-3 py-1 rounded-lg text-sm">
+              {isCustomExpanded ? '▲ 收起' : '▼ 展開'}
+            </span>
+          </button>
+
+          {/* ★ 內部輸入區塊 (當 isCustomExpanded 為 true 時才顯示) */}
+          {isCustomExpanded && (
+            <div className="p-5 pt-0 border-t border-dashed border-blue-100 animate-fadeIn mt-2">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input type="text" placeholder={isExpired ? "已停止下單" : "輸入餐點"} value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} disabled={isExpired} className="flex-1 border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+                <input type="text" placeholder="備註 (選填)" value={customItemRemark} onChange={(e) => setCustomItemRemark(e.target.value)} disabled={isExpired} className="flex-1 border border-gray-300 p-3 rounded-lg text-gray-900 font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+                <div className="flex gap-2 flex-1">
+                  <input type="number" step="0.1" min="0" placeholder="金額" value={customItemPrice} onChange={(e) => { const val = e.target.value; if (val === '' || Number(val) >= 0) setCustomItemPrice(val); }} disabled={isExpired} className="w-24 border border-gray-300 p-3 rounded-lg text-gray-900 font-bold text-center outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100" />
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+                    <button onClick={() => setCustomItemCount(c => Math.max(1, c - 1))} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>-</button>
+                    <span className="w-8 text-center font-bold text-gray-800">{customItemCount}</span>
+                    <button onClick={() => setCustomItemCount(c => c + 1)} className="px-3 py-3 hover:bg-gray-100 text-gray-600 font-bold" disabled={isExpired}>+</button>
+                  </div>
+                  <button disabled={isExpired} onClick={handleCustomOrder} className={`flex-1 px-4 py-3 rounded-lg font-bold transition shadow-sm whitespace-nowrap ${isExpired ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}>{isExpired ? '已結單' : '加入'}</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 菜單列表 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
           {menu.map((item) => (
-            <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} isExpired={isExpired} onOrder={(qty) => onOrder(item.name, item.price, qty)} />
+            <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} isExpired={isExpired} onOrder={(qty, remark) => onOrder(item.name, item.price, qty, remark)} />
           ))}
         </div>
 

@@ -24,6 +24,7 @@ export type Order = {
   customer_name: string; 
   quantity: number; 
   group_id: number; 
+  remark?: string | null; // ★ 新增備註
 };
 
 export type SummaryItem = { 
@@ -34,6 +35,7 @@ export type SummaryItem = {
     id: number; 
     customer_name: string; 
     quantity: number 
+    remark?: string | null; // ★ 新增備註
   }[]; 
 };
 

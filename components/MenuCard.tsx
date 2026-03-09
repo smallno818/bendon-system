@@ -6,12 +6,13 @@ type Props = {
   price: number;
   isExpired: boolean;
   // ★ 注意：這裡定義了 onOrder 接收一個數字參數
-  onOrder: (quantity: number) => void;
+  onOrder: (quantity: number, remark: string) => void;
 };
 
 // ★ 關鍵：這裡必須有 "export" 且沒有 "default"
 export function MenuCard({ name, description, price, isExpired, onOrder }: Props) {
   const [count, setCount] = useState(1);
+  const [remark, setRemark] = useState(''); // ★ 新增備註狀態
 
   const handleMinus = () => {
     setCount(prev => Math.max(1, prev - 1));
@@ -32,6 +33,15 @@ export function MenuCard({ name, description, price, isExpired, onOrder }: Props
         <div className="flex justify-between items-center mb-3">
           <span className="text-orange-600 font-bold text-xl">${price}</span>
         </div>
+
+        <input 
+          type="text" 
+          placeholder="備註 (例：加辣、少冰)" 
+          value={remark} 
+          onChange={(e) => setRemark(e.target.value)} 
+          disabled={isExpired} 
+          className="w-full mb-3 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 font-medium outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-200 disabled:bg-gray-100 transition"
+        />
 
         <div className="flex items-center gap-2">
           {/* 數量加減區塊 */}
@@ -58,8 +68,9 @@ export function MenuCard({ name, description, price, isExpired, onOrder }: Props
           <button 
             disabled={isExpired}
             onClick={() => {
-              onOrder(count);
+              onOrder(count, remark);
               setCount(1); // 點餐後重置為 1
+              setRemark(''); // 點餐後清空備註
             }}
             className={`flex-1 py-1.5 rounded-lg font-bold text-sm transition shadow-sm ${isExpired ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}
           >

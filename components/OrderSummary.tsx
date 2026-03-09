@@ -87,6 +87,13 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                         {row.orderDetails.map((detail) => (
                           <span key={detail.id} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-200 print:border-gray-300">
                             {detail.customer_name}
+
+                            {/* ★ 新增：如果有備註，就顯示在人名後面 */}
+                            {detail.remark && (
+                              <span className="text-xs text-gray-500 font-normal">
+                                ({detail.remark})
+                              </span>
+                            )}
                             
                             {detail.quantity > 1 && (
                               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-1 rounded ml-1">

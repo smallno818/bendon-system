@@ -33,10 +33,10 @@ export default function Home() {
   // 3. 事件處理 (Wrappers)
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  const handleOrderSubmit = async (itemName: string, itemPrice: number, quantity: number) => {
+  const handleOrderSubmit = async (itemName: string, itemPrice: number, quantity: number, remark: string = '') => {
     const name = prompt(`你要訂購 ${quantity} 份「${itemName}」，請輸入你的名字：`);
     if (!name) return;
-    try { await createOrder(itemName, itemPrice, quantity, name); } 
+    try { await createOrder(itemName, itemPrice, quantity, name, remark); } 
     catch (e: any) { alert('失敗：' + e.message); }
   };
 

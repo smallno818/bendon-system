@@ -32,7 +32,7 @@ export function useGroupOrders() {
       stats[order.item_name].count += qty;
       let newTotal = stats[order.item_name].total + (order.price * qty);
       stats[order.item_name].total = Math.round(newTotal * 10) / 10;
-      stats[order.item_name].orderDetails.push({ id: order.id, customer_name: order.customer_name, quantity: qty });
+      stats[order.item_name].orderDetails.push({ id: order.id, customer_name: order.customer_name, quantity: qty, remark: order.remark });
     });
     setSummary(Object.values(stats));
   };
@@ -115,14 +115,14 @@ export function useGroupOrders() {
     // 1. 抓取所有店家
     const { data: storesData } = await supabase.from('stores').select('*').order('id');
     
-    // 2. 抓取近 14 天的歷史紀錄
-    const fourteenDaysAgo = new Date();
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    // 2. ★ 修改：抓取近 21 天的歷史紀錄
+    const twentyOneDaysAgo = new Date();
+    twentyOneDaysAgo.setDate(twentyOneDaysAgo.getDate() - 21);
 
     const { data: recentHistory } = await supabase
       .from('store_history')
       .select('store_id')
-      .gte('created_at', fourteenDaysAgo.toISOString());
+      .gte('created_at', twentyOneDaysAgo.toISOString());
 
     // 3. 計算各店家開團次數
     const counts: Record<number, number> = {};
@@ -213,7 +213,7 @@ export function useGroupOrders() {
 
   // --- 使用者動作 ---
 
-  const createOrder = async (itemName: string, itemPrice: number, quantity: number, customerName: string) => {
+  const createOrder = async (itemName: string, itemPrice: number, quantity: number, customerName: string, remark: string = '') => {
     // 第一道防線：本地端初步阻擋 (為了 UI 反應快速)
     if (isExpired) throw new Error('已經超過結單時間');
     if (!activeGroupId) throw new Error('沒有選擇群組');
@@ -246,7 +246,8 @@ export function useGroupOrders() {
       price: itemPrice, 
       customer_name: customerName,
       quantity: quantity,
-      group_id: activeGroupId
+      group_id: activeGroupId,
+      remark: remark || null
     }]);
 
     if (error) throw error;
