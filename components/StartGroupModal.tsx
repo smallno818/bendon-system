@@ -47,29 +47,15 @@ export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: P
         </div>
 
         <div className="p-6 space-y-5">
-          
-          {/* 1. 選擇店家 (如果已經有預選，就變成純文字顯示，不能改) */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">1. 團購店家</label>
-            {initialStoreId ? (
-              <div className="w-full p-3 border border-indigo-200 rounded-xl bg-indigo-50 text-indigo-900 font-bold text-lg flex items-center gap-2">
-                <span>🍱</span>
-                {selectedStoreName}
-              </div>
-            ) : (
-              <select 
-                value={selectedStoreId} 
-                onChange={(e) => setSelectedStoreId(Number(e.target.value))}
-                className="w-full p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
-              >
-                <option value="">-- 請選擇 --</option>
-                {stores.map(store => (
-                  <option key={store.id} value={store.id}>
-                    {store.name}
-                  </option>
-                ))}
-              </select>
-            )}
+            {/* 1. 團購店家 (固定顯示由卡片點選的店家) */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">1. 團購店家</label>
+            <div className="w-full p-3 border border-indigo-200 rounded-xl bg-indigo-50 text-indigo-900 font-bold text-lg flex items-center gap-2">
+              {selectedStoreName}
+            </div>
+          </div>
           </div>
 
           {/* 2. 結單時間 */}
