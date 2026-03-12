@@ -136,10 +136,10 @@ export function EditMenuModal({
                     {/* ★ 加上基礎寬度，避免擠壓 */}
                     <th className="p-4 font-bold min-w-[180px]">品項名稱</th>
                     <th className="p-4 font-bold min-w-[120px]">價格</th>
-                    <th className="p-4 font-bold min-w-[120px]">備註</th>
+                    <th className="p-4 font-bold min-w-[160px]">備註</th>
                     {/* ★ 補上缺少的表頭，並給予 w-48 (約 192px) 的寬度讓輸入框變大 */}
                     <th className="p-4 font-bold w-48">口味選項</th>
-                    <th className="p-4 font-bold w-14 text-center">操作</th>
+                    <th className="p-4 font-bold w-10 text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody>
