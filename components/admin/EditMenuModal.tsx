@@ -73,7 +73,7 @@ export function EditMenuModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border border-slate-100">
         <div className="bg-slate-50 p-6 border-b border-slate-100 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
             <span className="bg-indigo-100 text-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center text-lg">📝</span>
@@ -136,7 +136,7 @@ export function EditMenuModal({
                     {/* ★ 加上基礎寬度，避免擠壓 */}
                     <th className="p-4 font-bold min-w-[180px]">品項名稱</th>
                     <th className="p-4 font-bold min-w-[120px]">價格</th>
-                    <th className="p-4 font-bold min-w-[160px]">備註</th>
+                    <th className="p-4 font-bold min-w-[200px]">備註</th>
                     {/* ★ 補上缺少的表頭，並給予 w-48 (約 192px) 的寬度讓輸入框變大 */}
                     <th className="p-4 font-bold w-48">口味選項</th>
                     <th className="p-4 font-bold w-10 text-center">操作</th>
