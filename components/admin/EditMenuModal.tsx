@@ -133,9 +133,12 @@ export function EditMenuModal({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
-                    <th className="p-4 font-bold">品項名稱</th>
-                    <th className="p-4 font-bold w-32">價格</th>
-                    <th className="p-4 font-bold">備註</th>
+                    {/* ★ 加上基礎寬度，避免擠壓 */}
+                    <th className="p-4 font-bold min-w-[120px]">品項名稱</th>
+                    <th className="p-4 font-bold w-28">價格</th>
+                    <th className="p-4 font-bold min-w-[120px]">備註</th>
+                    {/* ★ 補上缺少的表頭，並給予 w-48 (約 192px) 的寬度讓輸入框變大 */}
+                    <th className="p-4 font-bold w-48">口味選項</th>
                     <th className="p-4 font-bold w-20 text-center">操作</th>
                   </tr>
                 </thead>
@@ -144,7 +147,6 @@ export function EditMenuModal({
                     <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50 group transition-colors">
                       <td className="p-4 font-bold text-slate-700">{item.name}</td>
                       <td className="p-4">
-                        {/* ★ 使用共用輸入框，帶入 $ 圖示 */}
                         <AdminInput icon="$" key={`price-${item.price}`} type="number" defaultValue={item.price} onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))} />
                       </td>
                       <td className="p-4">
@@ -154,7 +156,6 @@ export function EditMenuModal({
                         <AdminInput key={`opt-${item.options}`} type="text" defaultValue={item.options || ''} placeholder="例: 黑胡椒,蘑菇" onBlur={(e) => onUpdateItem(item.id, 'options', e.target.value)} className="text-sm" />
                       </td>
                       <td className="p-4 text-center">
-                        {/* ★ 替換為共用刪除按鈕 */}
                         <AdminButton variant="icon-delete" onClick={() => onDeleteItem(item.id)}>🗑️</AdminButton>
                       </td>
                     </tr>
@@ -165,14 +166,15 @@ export function EditMenuModal({
                     <td className="p-4">
                       <AdminInput type="text" value={newItemName} onChange={e => onNameChange(e.target.value)} className="bg-white border-indigo-200" placeholder="餐點名稱" />
                     </td>
-                    <td className="p-4">
-                      <AdminInput type="text" value={newItemOptions} onChange={e => onOptionsChange(e.target.value)} className="bg-white border-indigo-200 text-sm" placeholder="例: 黑胡椒,蘑菇" />
-                    </td>
+                    {/* ★ 將這裡的順序調整為與上方一致：價格 -> 備註 -> 口味 */}
                     <td className="p-4">
                       <AdminInput icon="$" type="number" value={newItemPrice} onChange={e => onPriceChange(e.target.value)} className="bg-white border-indigo-200" placeholder="價格" />
                     </td>
                     <td className="p-4">
                       <AdminInput type="text" value={newItemDescription} onChange={e => onDescriptionChange(e.target.value)} className="bg-white border-indigo-200 text-sm" placeholder="備註" />
+                    </td>
+                    <td className="p-4">
+                      <AdminInput type="text" value={newItemOptions} onChange={e => onOptionsChange(e.target.value)} className="bg-white border-indigo-200 text-sm" placeholder="例: 黑胡椒,蘑菇" />
                     </td>
                     <td className="p-4">
                       <AdminButton variant="primary" onClick={onAddItem} className="w-full" disabled={!newItemName || !newItemPrice}>新增</AdminButton>
