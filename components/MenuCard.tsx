@@ -4,15 +4,20 @@ type Props = {
   name: string;
   description: string | null;
   price: number;
+  options?: string | null; // ★ 1. 新增：接收從資料庫傳來的口味字串
   isExpired: boolean;
-  // ★ 注意：這裡定義了 onOrder 接收一個數字參數
-  onOrder: (quantity: number, remark: string) => void;
+  // ★ 2. 修改：加上第三個可選參數 selectedOption，準備傳給外層
+  onOrder: (quantity: number, remark: string, selectedOption?: string) => void; 
 };
 
-// ★ 關鍵：這裡必須有 "export" 且沒有 "default"
-export function MenuCard({ name, description, price, isExpired, onOrder }: Props) {
+export function MenuCard({ name, description, price, options, isExpired, onOrder }: Props) {
   const [count, setCount] = useState(1);
-  const [remark, setRemark] = useState(''); // ★ 新增備註狀態
+  const [remark, setRemark] = useState('');
+  const [selectedOption, setSelectedOption] = useState(''); // ★ 3. 新增：記錄顧客選了什麼口味
+
+  // ★ 4. 新增：將字串 (例: "黑胡椒,蘑菇") 拆解成陣列，方便製作下拉選單
+  const optionList = options ? options.split(',').map(o => o.trim()).filter(Boolean) : [];
+  const hasOptions = optionList.length > 0;
 
   const handleMinus = () => {
     setCount(prev => Math.max(1, prev - 1));
@@ -20,6 +25,21 @@ export function MenuCard({ name, description, price, isExpired, onOrder }: Props
 
   const handlePlus = () => {
     setCount(prev => prev + 1);
+  };
+
+  // ★ 5. 新增：獨立出「加入」按鈕的邏輯，加入防呆機制
+  const handleAdd = () => {
+    // 防呆：如果有口味選項，但顧客沒選，就跳出警告阻擋
+    if (hasOptions && !selectedOption) {
+      alert('請先選擇口味喔！');
+      return;
+    }
+    
+    // 成功點餐，把數量、備註、口味一起往外傳
+    onOrder(count, remark, selectedOption);
+    setCount(1);
+    setRemark('');
+    setSelectedOption(''); // 加入後一併清空口味選擇
   };
 
   return (
@@ -33,6 +53,21 @@ export function MenuCard({ name, description, price, isExpired, onOrder }: Props
         <div className="flex justify-between items-center mb-3">
           <span className="text-orange-600 font-bold text-xl">${price}</span>
         </div>
+
+        {/* ★ 6. 新增：動態顯示口味下拉選單 (只有當 hasOptions 為 true 時才會出現) */}
+        {hasOptions && (
+          <select
+            value={selectedOption}
+            onChange={(e) => setSelectedOption(e.target.value)}
+            disabled={isExpired}
+            className="w-full mb-2 px-3 py-2 text-sm border border-orange-300 rounded-lg text-gray-900 font-bold outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-200 disabled:bg-gray-100 transition cursor-pointer bg-orange-50/30"
+          >
+            <option value="" disabled>請選擇口味...</option>
+            {optionList.map((opt, idx) => (
+              <option key={idx} value={opt}>{opt}</option>
+            ))}
+          </select>
+        )}
 
         <input 
           type="text" 
@@ -67,11 +102,7 @@ export function MenuCard({ name, description, price, isExpired, onOrder }: Props
 
           <button 
             disabled={isExpired}
-            onClick={() => {
-              onOrder(count, remark);
-              setCount(1); // 點餐後重置為 1
-              setRemark(''); // 點餐後清空備註
-            }}
+            onClick={handleAdd} // ★ 7. 修改：改用上面寫好的 handleAdd 函數
             className={`flex-1 py-1.5 rounded-lg font-bold text-sm transition shadow-sm ${isExpired ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-500 hover:text-white'}`}
           >
             {isExpired ? '已結單' : '加入'}

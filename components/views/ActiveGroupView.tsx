@@ -222,7 +222,14 @@ export function ActiveGroupView({
         {/* 菜單列表 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
           {menu.map((item) => (
-            <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} isExpired={isExpired} onOrder={(qty, remark) => onOrder(item.name, item.price, qty, remark)} />
+            <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} options={item.options} isExpired={isExpired} 
+            onOrder={(qty, remark, selectedOption) => {
+                // ★ 2. 關鍵魔法：如果有選口味，就把口味加到名字後面；沒選就用原名
+                const finalItemName = selectedOption ? `${item.name} (${selectedOption})` : item.name;
+                // ★ 3. 把組合好的新名字送出
+                onOrder(finalItemName, item.price, qty, remark);
+              }} 
+            />
           ))}
         </div>
 
