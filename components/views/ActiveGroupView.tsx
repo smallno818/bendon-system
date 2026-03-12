@@ -189,12 +189,12 @@ export function ActiveGroupView({
           {/* ★ 展開/收合切換按鈕 */}
           <button 
             onClick={() => setIsCustomExpanded(!isCustomExpanded)}
-            className="w-full flex items-center justify-between p-4 focus:outline-none hover:bg-blue-50/50 transition-colors rounded-xl"
+            className="w-full flex items-center justify-between gap-2 p-4 focus:outline-none hover:bg-blue-50/50 transition-colors rounded-xl"
           >
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-gray-700">✏️ 找不到餐點？手動新增 / 客製化餐點</span>
+            <div className="text-left">
+              <span className="text-base sm:text-xl font-bold text-gray-700">✏️ 找不到餐點？手動新增 / 客製化餐點</span>
             </div>
-            <span className="text-gray-500 font-bold bg-gray-100 px-3 py-1 rounded-lg text-sm">
+            <span className="shrink-0 whitespace-nowrap text-gray-500 font-bold bg-gray-100 px-3 py-1 rounded-lg text-sm">
               {isCustomExpanded ? '▲ 收起' : '▼ 展開'}
             </span>
           </button>
