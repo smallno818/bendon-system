@@ -23,16 +23,16 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
       `}</style>
 
       <div className="print-content bg-white p-6 rounded-xl shadow-lg border border-gray-100 mb-10">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex flex-col">
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-gray-800 flex flex-wrap items-center gap-2">
               {storeName} 
               {isExpired && <span className="text-red-500 text-sm border border-red-500 px-2 rounded print:hidden">已結單</span>}
             </h2>
             <p className="text-sm text-gray-500">今日訂單統計</p>
           </div>
           
-          <div className="flex gap-2 print:hidden">
+          <div className="flex gap-2 print:hidden w-full sm:w-auto">
             <button onClick={() => window.print()} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-md font-bold transition">
               🖨️ 列印訂單
             </button>

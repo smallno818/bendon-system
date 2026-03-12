@@ -26,7 +26,7 @@ export function MenuCard({ name, description, price, isExpired, onOrder }: Props
     <div className={`bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition border border-gray-100 flex flex-col justify-between h-full ${isExpired ? 'opacity-60 grayscale' : ''}`}>
       <div>
         <h3 className="font-bold text-lg text-gray-800 leading-tight">{name}</h3>
-        <p className="text-sm text-gray-400 mt-1">{description}</p>
+        <p className="text-sm text-blue-500 font-bold mt-1">{description}</p>
       </div>
       
       <div className="mt-4 pt-3 border-t border-gray-50">
