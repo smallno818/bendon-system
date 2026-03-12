@@ -3,21 +3,21 @@ import { supabase } from '@/lib/supabase';
 import { AdminInput } from './ui/AdminInput';
 import { AdminButton } from './ui/AdminButton';
 
-type Product = { id: number; name: string; price: number; description: string | null; };
+type Product = { id: number; name: string; price: number; description: string | null; options?: string | null;};
 
 type Props = {
   storeId: number; storeName: string; menuItems: Product[];
-  newItemName: string; newItemPrice: string; newItemDescription: string;
+  newItemName: string; newItemPrice: string; newItemDescription: string; newItemOptions: string;
   onClose: () => void; onExcelUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onNameChange: (val: string) => void; onPriceChange: (val: string) => void; onDescriptionChange: (val: string) => void;
+  onNameChange: (val: string) => void; onPriceChange: (val: string) => void; onDescriptionChange: (val: string) => void; onOptionsChange: (val: string) => void;
   onAddItem: () => void; onDeleteItem: (id: number) => void;
-  onUpdateItem: (id: number, field: 'price' | 'description', value: string | number) => void;
+  onUpdateItem: (id: number, field: 'price' | 'description' | 'options', value: string | number) => void;
   onRefresh: () => Promise<void>;
 };
 
 export function EditMenuModal({
-  storeId, storeName, menuItems, newItemName, newItemPrice, newItemDescription,
-  onClose, onExcelUpload, onNameChange, onPriceChange, onDescriptionChange,
+  storeId, storeName, menuItems, newItemName, newItemPrice, newItemDescription, newItemOptions,
+  onClose, onExcelUpload, onNameChange, onPriceChange, onDescriptionChange, onOptionsChange,
   onAddItem, onDeleteItem, onUpdateItem, onRefresh
 }: Props) {
   
@@ -109,6 +109,7 @@ export function EditMenuModal({
                       <th className="p-4">品項</th>
                       <th className="p-4">價格</th>
                       <th className="p-4">備註</th>
+                      <th className="p-4">口味選項</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -149,6 +150,9 @@ export function EditMenuModal({
                       <td className="p-4">
                         <AdminInput key={`desc-${item.description}`} type="text" defaultValue={item.description || ''} placeholder="可留空" onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)} className="text-sm" />
                       </td>
+                      <td className="p-4">
+                        <AdminInput key={`opt-${item.options}`} type="text" defaultValue={item.options || ''} placeholder="例: 黑胡椒,蘑菇" onBlur={(e) => onUpdateItem(item.id, 'options', e.target.value)} className="text-sm" />
+                      </td>
                       <td className="p-4 text-center">
                         {/* ★ 替換為共用刪除按鈕 */}
                         <AdminButton variant="icon-delete" onClick={() => onDeleteItem(item.id)}>🗑️</AdminButton>
@@ -160,6 +164,9 @@ export function EditMenuModal({
                   <tr className="bg-indigo-50/30">
                     <td className="p-4">
                       <AdminInput type="text" value={newItemName} onChange={e => onNameChange(e.target.value)} className="bg-white border-indigo-200" placeholder="餐點名稱" />
+                    </td>
+                    <td className="p-4">
+                      <AdminInput type="text" value={newItemOptions} onChange={e => onOptionsChange(e.target.value)} className="bg-white border-indigo-200 text-sm" placeholder="例: 黑胡椒,蘑菇" />
                     </td>
                     <td className="p-4">
                       <AdminInput icon="$" type="number" value={newItemPrice} onChange={e => onPriceChange(e.target.value)} className="bg-white border-indigo-200" placeholder="價格" />

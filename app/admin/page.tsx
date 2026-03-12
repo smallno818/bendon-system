@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemDescription, setNewItemDescription] = useState(''); 
+  const [newItemOptions, setNewItemOptions] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -156,18 +157,20 @@ export default function AdminPage() {
       store_id: editingStore.id, 
       name: newItemName, 
       price: parseFloat(newItemPrice),
-      description: newItemDescription.trim() || null 
+      description: newItemDescription.trim() || null,
+      options: newItemOptions.trim() || null
     }]);
     
     if (!error) {
       setNewItemName(''); 
       setNewItemPrice(''); 
       setNewItemDescription(''); 
+      setNewItemOptions('');
       fetchMenu(editingStore.id);
     }
   };
 
-  const handleUpdateItem = async (id: number, field: 'price' | 'description', value: string | number) => {
+  const handleUpdateItem = async (id: number, field: 'price' | 'description' | 'options', value: string | number) => {
     if (!editingStore) return;
     
     if (field === 'price' && isNaN(Number(value))) return;
@@ -208,7 +211,8 @@ export default function AdminPage() {
             store_id: editingStore.id, 
             name: row[0], 
             price: parseFloat(row[1]),
-            description: row[2] ? String(row[2]) : null 
+            description: row[2] ? String(row[2]) : null,
+            options: row[3] ? String(row[3]) : null
           });
         }
       });
@@ -270,11 +274,13 @@ export default function AdminPage() {
           newItemName={newItemName}
           newItemPrice={newItemPrice}
           newItemDescription={newItemDescription} 
+          newItemOptions={newItemOptions}
           onClose={() => setEditingStore(null)}
           onExcelUpload={handleExcelUpload}
           onNameChange={setNewItemName}
           onPriceChange={setNewItemPrice}
           onDescriptionChange={setNewItemDescription} 
+          onOptionsChange={setNewItemOptions}
           onAddItem={handleAddSingleItem}
           onDeleteItem={handleDeleteItem}
           onUpdateItem={handleUpdateItem} 

@@ -15,6 +15,7 @@ export type Product = {
   name: string; 
   price: number; 
   description: string | null; 
+  options?: string | null;
 };
 
 export type Order = { 
