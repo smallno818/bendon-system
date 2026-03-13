@@ -8,9 +8,10 @@ type Props = {
   endTime: string | null;
   isExpired: boolean;
   onShowLargeImage: () => void;
+  onCloseGroup: () => void; // ★ 1. 新增接收關閉此團的函數
 };
 
-export function StoreBanner({ name, imageUrl, phone, timeLeft, endTime, isExpired, onShowLargeImage }: Props) {
+export function StoreBanner({ name, imageUrl, phone, timeLeft, endTime, isExpired, onShowLargeImage, onCloseGroup }: Props) {
   return (
     <div 
       className="w-full h-48 bg-gray-800 relative overflow-hidden group print:hidden cursor-zoom-in"
@@ -20,8 +21,22 @@ export function StoreBanner({ name, imageUrl, phone, timeLeft, endTime, isExpire
       {imageUrl && (
         <img src={imageUrl} alt={name} className="w-full h-full object-cover opacity-50" />
       )}
+
+      {/* ★ 2. 新增：放在右上角的小 ✕ 按鈕 */}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation(); // 防止點擊時觸發外層的放大圖片功能
+          if (window.confirm('確定要關閉/刪除目前顯示的團購嗎？')) {
+            onCloseGroup();
+          }
+        }}
+        className="absolute top-4 right-4 z-20 bg-rose-500/60 hover:bg-rose-600 text-white w-8 h-8 rounded-full flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+        title="關閉此團"
+      >
+        ✕
+      </button>
       
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white">
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-white z-10">
         <h1 className="text-4xl font-bold drop-shadow-lg mb-2">{name}</h1>
         
         {/* 倒數計時顯示：已移除 animate-pulse (不閃爍)，並稍微加大內距 */}

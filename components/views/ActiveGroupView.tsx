@@ -136,14 +136,11 @@ export function ActiveGroupView({
         endTime={activeGroup.end_time} 
         isExpired={isExpired} 
         onShowLargeImage={() => setShowLargeImage(true)} 
+        onCloseGroup={onCloseGroup}
       />
       
       <button onClick={onScrollTop} className="fixed bottom-8 right-8 z-30 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden" title="回到頂部">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
-      </button>
-
-      <button onClick={onCloseGroup} className="fixed bottom-28 right-8 z-30 bg-rose-600 text-white px-4 py-4 rounded-2xl shadow-2xl hover:bg-rose-700 transition-all hover:scale-105 active:scale-95 print:hidden border-2 border-white/20 flex flex-col items-center justify-center gap-1" title="刪除目前顯示的團購">
-        <span className="text-xl">❌</span><span className="text-xs font-bold">關閉此團</span>
       </button>
 
       <div className="max-w-5xl mx-auto p-4 print:p-0 print:max-w-none">
