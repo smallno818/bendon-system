@@ -26,9 +26,7 @@ export function StoreBanner({ name, imageUrl, phone, timeLeft, endTime, isExpire
       <button 
         onClick={(e) => {
           e.stopPropagation(); // 防止點擊時觸發外層的放大圖片功能
-          if (window.confirm('確定要關閉/刪除目前顯示的團購嗎？')) {
-            onCloseGroup();
-          }
+          onCloseGroup();
         }}
         className="absolute top-4 right-4 z-20 bg-rose-500/60 hover:bg-rose-600 text-white w-8 h-8 rounded-full flex items-center justify-center transition-colors shadow-sm cursor-pointer"
         title="關閉此團"
