@@ -192,6 +192,24 @@ export default function AdminPage() {
     const { error } = await supabase.from('products').delete().eq('id', itemId);
     if (!error) fetchMenu(editingStore.id);
   };
+  const handleClearMenu = async () => {
+    if (!editingStore) return;
+    
+    // 加上雙重確認防呆，避免誤按
+    if (!window.confirm(`⚠️ 確定要清空「${editingStore.name}」的所有菜單嗎？\n此動作無法復原！`)) return;
+
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('store_id', editingStore.id);
+
+    if (!error) {
+      fetchMenu(editingStore.id);
+      alert('✅ 菜單已全數清空！');
+    } else {
+      alert('清空失敗: ' + error.message);
+    }
+  };
 
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -284,6 +302,7 @@ export default function AdminPage() {
           onAddItem={handleAddSingleItem}
           onDeleteItem={handleDeleteItem}
           onUpdateItem={handleUpdateItem} 
+          onClearMenu={handleClearMenu}
           onRefresh={() => fetchMenu(editingStore.id)} // ★ 補上這行，AI 存完後就會呼叫 fetchMenu 更新列表
         />
       )}

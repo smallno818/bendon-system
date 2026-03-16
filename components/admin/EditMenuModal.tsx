@@ -12,13 +12,14 @@ type Props = {
   onNameChange: (val: string) => void; onPriceChange: (val: string) => void; onDescriptionChange: (val: string) => void; onOptionsChange: (val: string) => void;
   onAddItem: () => void; onDeleteItem: (id: number) => void;
   onUpdateItem: (id: number, field: 'price' | 'description' | 'options', value: string | number) => void;
+  onClearMenu: () => void;
   onRefresh: () => Promise<void>;
 };
 
 export function EditMenuModal({
   storeId, storeName, menuItems, newItemName, newItemPrice, newItemDescription, newItemOptions,
   onClose, onExcelUpload, onNameChange, onPriceChange, onDescriptionChange, onOptionsChange,
-  onAddItem, onDeleteItem, onUpdateItem, onRefresh
+  onAddItem, onDeleteItem, onUpdateItem, onClearMenu, onRefresh
 }: Props) {
   
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -91,6 +92,15 @@ export function EditMenuModal({
                   <span>📊 匯入 Excel</span>
                   <input type="file" accept=".xlsx,.csv" className="hidden" onChange={onExcelUpload} />
                 </label>
+                {menuItems.length > 0 && (
+                  <button 
+                    onClick={onClearMenu}
+                    className="cursor-pointer bg-white border border-rose-200 text-rose-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-rose-50 hover:border-rose-300 shadow-sm transition-all flex items-center gap-2"
+                    title="清空所有菜單"
+                  >
+                    <span>🗑️ 清空菜單</span>
+                  </button>
+                )}
               </>
             )}
             {/* ★ 替換為共用關閉按鈕 */}
