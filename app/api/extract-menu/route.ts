@@ -1,30 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-export async function POST(req: NextRequest) {
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey || '');
+
+export async function POST(request: Request) {
   try {
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: '系統未設定 Gemini API Key' }, { status: 500 });
+    // ★ 接收前端傳來的自訂提示詞 (prompt)
+    const { base64Image, mimeType, prompt } = await request.json();
+
+    if (!base64Image || !mimeType) {
+      return NextResponse.json({ error: 'Missing image data' }, { status: 400 });
     }
 
-    const body = await req.json();
-    const { base64Image, mimeType } = body;
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    if (!base64Image) {
-      return NextResponse.json({ error: '沒有收到圖片' }, { status: 400 });
-    }
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    
-    // ★ 根據您的清單，直接使用最強的 2.5 Pro 模型
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    });
-
-    const prompt = `
+    // ★ 如果前端有傳提示詞就用前端的，沒有就用預設的
+    const defaultPrompt = 
+    `
       你是一個專業的資料輸入員。請仔細辨識這張菜單圖片中的所有「餐點品項」與「價格」。
       
       規則：
@@ -37,24 +30,26 @@ export async function POST(req: NextRequest) {
         {"name": "餐點名稱", "price": 100, "description": "備註"}
       ]
     `;
+    const finalPrompt = prompt || defaultPrompt;
 
-    const imagePart = {
-      inlineData: {
-        data: base64Image,
-        mimeType: mimeType
-      }
-    };
+    const result = await model.generateContent([
+      finalPrompt,
+      {
+        inlineData: {
+          data: base64Image,
+          mimeType: mimeType,
+        },
+      },
+    ]);
 
-    const result = await model.generateContent([prompt, imagePart]);
     const text = result.response.text();
-    
-    // 解析 AI 吐出來的 JSON
-    const menuData = JSON.parse(text);
+    const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/);
+    const jsonString = jsonMatch ? jsonMatch[1] : text.replace(/```/g, '');
+    const menuData = JSON.parse(jsonString);
 
     return NextResponse.json({ menu: menuData });
-
   } catch (error: any) {
-    console.error('Gemini API 錯誤:', error);
-    return NextResponse.json({ error: error.message || '辨識失敗' }, { status: 500 });
+    console.error('Error extracting menu:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
