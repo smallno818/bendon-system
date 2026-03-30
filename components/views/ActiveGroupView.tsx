@@ -104,6 +104,19 @@ export function ActiveGroupView({
     window.open(lineUrl, '_blank');
   };
 
+  // ★ 更新：全方位的菜單排序邏輯
+  const sortedMenu = [...menu].sort((a, b) => {
+    if (activeGroup.store.category === 'beverage') {
+      // 1. 如果是飲料店：先比對名稱（把一樣的飲料排在一起），名稱相同時再依價格由低到高
+      const nameCompare = a.name.localeCompare(b.name, 'zh-TW');
+      if (nameCompare !== 0) return nameCompare;
+      return a.price - b.price;
+    } else {
+      // 2. 如果是午餐或其他店：直接依照價格由低到高排序
+      return a.price - b.price;
+    }
+  });
+
   return (
     <>
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
@@ -218,7 +231,7 @@ export function ActiveGroupView({
 
         {/* 菜單列表 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
-          {menu.map((item) => (
+          {sortedMenu.map((item) => (
             <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} options={item.options} isExpired={isExpired} 
             onOrder={(qty, remark, selectedOption) => {
                 // ★ 2. 關鍵魔法：如果有選口味，就把口味加到名字後面；沒選就用原名

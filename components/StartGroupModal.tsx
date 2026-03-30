@@ -47,29 +47,26 @@ export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: P
         </div>
 
         <div className="p-6 space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">1. 團購店家</label>
-            {/* 1. 團購店家 (固定顯示由卡片點選的店家) */}
+          {/* ★ 修正：清理了多餘重複包覆的 div 與 label */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">1. 團購店家</label>
             <div className="w-full p-3 border border-indigo-200 rounded-xl bg-indigo-50 text-indigo-900 font-bold text-lg flex items-center gap-2">
               {selectedStoreName}
             </div>
           </div>
-          </div>
 
-          {/* 2. 結單時間 */}
+          {/* ★ 修正：加上 max-w-full, box-border, text-base 防止手機破版與自動放大 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">2. 結單時間</label>
             <input 
               type="datetime-local" 
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
+              className="w-full max-w-full box-border text-base p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
             />
           </div>
 
-          {/* 3. 團購名稱 (選填) */}
+          {/* ★ 修正：文字輸入框也加上同樣的防護 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">3. 團購名稱 (選填)</label>
             <input 
@@ -77,7 +74,7 @@ export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: P
               placeholder="例：飲料團、晚餐團..."
               value={groupName}
               onChange={(e) => setGroupName(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
+              className="w-full max-w-full box-border text-base p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
             />
           </div>
 
