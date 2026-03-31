@@ -1,5 +1,5 @@
 import React from 'react';
-import { SummaryItem } from '@/types'; // 引用統一的型別定義
+import { SummaryItem } from '@/types'; 
 
 type Props = {
   storeName: string;
@@ -8,9 +8,11 @@ type Props = {
   totalCount: number;
   isExpired: boolean;
   onDeleteOrder: (id: number, name: string) => void;
+  // ★ 新增：接收從上層傳來的 onOrder 函數，用來處理 +1 快速點餐
+  onOrder?: (item: string, price: number, qty: number, remark?: string) => void; 
 };
 
-export function OrderSummary({ storeName, summary, totalAmount, totalCount, isExpired, onDeleteOrder }: Props) {
+export function OrderSummary({ storeName, summary, totalAmount, totalCount, isExpired, onDeleteOrder, onOrder }: Props) {
   return (
     <>
       <style jsx global>{`
@@ -48,7 +50,6 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
             <table className="w-full text-left border-collapse print:text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b border-gray-200 print:bg-gray-100">
-                  {/* ★ 修改重點：加入 min-w-[140px] 讓它有基礎寬度，不會被擠壓 */}
                   <th className="p-3 font-semibold min-w-[140px]">品項</th>
                   <th className="p-3 text-right font-semibold whitespace-nowrap">單價</th>
                   <th className="p-3 text-center font-semibold whitespace-nowrap">數量</th>
@@ -57,19 +58,30 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {summary.map((row) => (
+                {summary.map((row) => {
+                  // 計算該品項的單價
+                  const unitPrice = Math.round((row.total / row.count) * 10) / 10;
+                  
+                  return (
                   <tr key={row.name} className="hover:bg-blue-50/50 transition break-inside-avoid">
-                    
-                    {/* ★ 修改重點：
-                        break-words: 允許長單字換行
-                        whitespace-normal: 強制開啟換行模式
-                    */}
                     <td className="p-3 font-medium text-gray-800 break-words whitespace-normal">
-                      {row.name}
+                      {/* ★ 新增：排版改成 flex，並在前方加上 +1 按鈕 */}
+                      <div className="flex items-start sm:items-center gap-2">
+                        {!isExpired && onOrder && (
+                          <button
+                            onClick={() => onOrder(row.name, unitPrice, 1, '')}
+                            className="flex-shrink-0 mt-0.5 sm:mt-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm font-bold text-lg print:hidden border border-emerald-200"
+                            title="+1 快速跟單"
+                          >
+                            +
+                          </button>
+                        )}
+                        <span>{row.name}</span>
+                      </div>
                     </td>
                     
                     <td className="p-3 text-right text-gray-500 font-medium whitespace-nowrap">
-                      ${Math.round((row.total / row.count) * 10) / 10}
+                      ${unitPrice}
                     </td>
 
                     <td className="p-3 text-center whitespace-nowrap">
@@ -88,7 +100,6 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                           <span key={detail.id} className="inline-flex items-center gap-1 bg-gray-100 px-2 py-1 rounded border border-gray-200 print:border-gray-300">
                             {detail.customer_name}
 
-                            {/* ★ 新增：如果有備註，就顯示在人名後面 */}
                             {detail.remark && (
                               <span className="text-xs text-gray-500 font-normal">
                                 ({detail.remark})
@@ -115,7 +126,7 @@ export function OrderSummary({ storeName, summary, totalAmount, totalCount, isEx
                       </div>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-900 text-white font-bold print:bg-gray-200 print:text-black">

@@ -250,6 +250,7 @@ export function ActiveGroupView({
           totalCount={summary.reduce((a, b) => a + b.count, 0)} 
           isExpired={isExpired} 
           onDeleteOrder={onDeleteOrder} 
+          onOrder={onOrder}
         />
       </div>
 
