@@ -47,35 +47,39 @@ export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: P
         </div>
 
         <div className="p-6 space-y-5">
-          {/* ★ 修正：清理了多餘重複包覆的 div 與 label */}
+          {/* 1. 團購店家 */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">1. 團購店家</label>
-            <div className="w-full p-3 border border-indigo-200 rounded-xl bg-indigo-50 text-indigo-900 font-bold text-lg flex items-center gap-2">
+            <div className="w-full p-3 border border-indigo-200 rounded-xl bg-indigo-50 text-indigo-900 font-bold text-lg flex items-center overflow-hidden">
               {selectedStoreName}
             </div>
           </div>
 
-          {/* ★ 修正：加上 max-w-full, box-border, text-base 防止手機破版與自動放大 */}
+          {/* 2. 結單時間 (★ 終極修正：將樣式移至外層 div，input 本身透明化) */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">2. 結單時間</label>
-            <input 
-              type="datetime-local" 
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full max-w-full box-border text-base p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
-            />
+            <div className="w-full p-3 border border-gray-300 rounded-xl bg-gray-50 focus-within:ring-2 focus-within:ring-indigo-500 overflow-hidden flex items-center transition-all">
+              <input 
+                type="datetime-local" 
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full bg-transparent border-0 p-0 m-0 outline-none font-bold text-gray-800 text-base appearance-none min-w-0 cursor-pointer"
+              />
+            </div>
           </div>
 
-          {/* ★ 修正：文字輸入框也加上同樣的防護 */}
+          {/* 3. 團購名稱 (選填) (★ 同步修正：維持所有欄位排版邏輯完全一致) */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">3. 團購名稱 (選填)</label>
-            <input 
-              type="text" 
-              placeholder="例：飲料團、晚餐團..."
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              className="w-full max-w-full box-border text-base p-3 border border-gray-300 rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-gray-800"
-            />
+            <div className="w-full p-3 border border-gray-300 rounded-xl bg-gray-50 focus-within:ring-2 focus-within:ring-indigo-500 overflow-hidden flex items-center transition-all">
+              <input 
+                type="text" 
+                placeholder="例：飲料團、晚餐團..."
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+                className="w-full bg-transparent border-0 p-0 m-0 outline-none font-bold text-gray-800 text-base appearance-none min-w-0"
+              />
+            </div>
           </div>
 
         </div>
