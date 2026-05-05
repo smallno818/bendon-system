@@ -245,10 +245,12 @@ export function ActiveGroupView({
 
         <OrderSummary 
           storeName={activeGroup.store.name} 
+          storePhone={activeGroup.store.phone} /* ★ 新增這行：把電話傳給統計表 */
           summary={summary} 
           totalAmount={Math.round(summary.reduce((a, b) => a + b.total, 0) * 10) / 10} 
           totalCount={summary.reduce((a, b) => a + b.count, 0)} 
           isExpired={isExpired} 
+          endTime={activeGroup.end_time} /* ★ 新增這行：把結單時間傳進去 */
           onDeleteOrder={onDeleteOrder} 
           onOrder={onOrder}
         />
