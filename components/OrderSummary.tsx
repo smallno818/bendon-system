@@ -89,7 +89,7 @@ export function OrderSummary({ storeName, storePhone, summary, totalAmount, tota
                   const unitPrice = Math.round((row.total / row.count) * 10) / 10;
                   
                   return (
-                  <tr key={row.name} className="hover:bg-blue-50/50 transition break-inside-avoid">
+                  <tr key={`${row.name}-${unitPrice}`} className="hover:bg-blue-50/50 transition break-inside-avoid">
                     <td className="p-3 font-medium text-gray-800 print:text-black break-words whitespace-normal">
                       <div className="flex items-start sm:items-center gap-2">
                         {!isExpired && onOrder && (

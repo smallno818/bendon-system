@@ -26,14 +26,38 @@ export function useGroupOrders() {
   // --- 內部輔助：計算統計 ---
   const calculateSummary = (ordersData: Order[]) => {
     const stats: Record<string, SummaryItem> = {};
+    
     ordersData.forEach(order => {
       const qty = order.quantity || 1;
-      if (!stats[order.item_name]) stats[order.item_name] = { name: order.item_name, count: 0, total: 0, orderDetails: [] };
-      stats[order.item_name].count += qty;
-      let newTotal = stats[order.item_name].total + (order.price * qty);
-      stats[order.item_name].total = Math.round(newTotal * 10) / 10;
-      stats[order.item_name].orderDetails.push({ id: order.id, customer_name: order.customer_name, quantity: qty, remark: order.remark });
+      // 確保單價精準度
+      const unitPrice = Math.round(order.price * 10) / 10; 
+      
+      // ⭐️ 核心修改：組合「品項名稱_單價」作為唯一的群組 Key
+      const key = `${order.item_name}_${unitPrice}`;
+
+      // 如果這個「品項+價格」的組合還沒出現過，就先建立一個新的統計物件
+      if (!stats[key]) {
+        stats[key] = { 
+          name: order.item_name, // 畫面顯示依然保持原本乾淨的餐點名稱
+          count: 0, 
+          total: 0, 
+          orderDetails: [] 
+        };
+      }
+      
+      // 累加數量與金額，並推入訂單明細
+      stats[key].count += qty;
+      let newTotal = stats[key].total + (unitPrice * qty);
+      stats[key].total = Math.round(newTotal * 10) / 10;
+      stats[key].orderDetails.push({ 
+        id: order.id, 
+        customer_name: order.customer_name, 
+        quantity: qty, 
+        remark: order.remark 
+      });
     });
+    
+    // 將 Object 轉換回陣列並寫入狀態
     setSummary(Object.values(stats));
   };
 
