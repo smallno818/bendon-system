@@ -190,10 +190,18 @@ export function useGroupOrders() {
         setTimeLeft('🔴 已結單'); 
       } else {
         setIsExpired(false);
+        // ★ 修正：加入天數計算，解決跨日倒數隱藏天數的 Bug
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const secs = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft(`⏳ 倒數：${hours}時 ${mins}分 ${secs}秒`);
+        
+        // 判斷如果有跨天，就加上天數的顯示
+        if (days > 0) {
+          setTimeLeft(`⏳ 倒數：${days}天 ${hours}時 ${mins}分 ${secs}秒`);
+        } else {
+          setTimeLeft(`⏳ 倒數：${hours}時 ${mins}分 ${secs}秒`);
+        }
       }
     };
 
