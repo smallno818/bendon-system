@@ -34,8 +34,13 @@ export default function Home() {
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   const handleOrderSubmit = async (itemName: string, itemPrice: number, quantity: number, remark: string = '') => {
-    const name = prompt(`你要訂購 ${quantity} 份「${itemName}」，請輸入你的名字：`);
+    // ★ 1. 新增：點擊時，先嘗試從 LocalStorage 讀取上次存過的名字（如果沒有就給空字串）
+    const savedName = localStorage.getItem('bendon_user_name') || '';
+    // ★ 2. 修改：把 savedName 當作 prompt 的「預設值」放進第二個參數
+    const name = prompt(`你要訂購 ${quantity} 份「${itemName}」，請輸入你的名字：`, savedName);
     if (!name) return;
+    // ★ 3. 新增：使用者確定送出後，把這次輸入的名字存進 LocalStorage，供下次使用
+    localStorage.setItem('bendon_user_name', name.trim());
     try { await createOrder(itemName, itemPrice, quantity, name, remark); } 
     catch (e: any) { alert('失敗：' + e.message); }
   };
