@@ -95,9 +95,9 @@ export function useGroupOrders() {
     const { data } = await supabase
       .from('daily_groups')
       .select('*, store:stores(*)')
-      // ★ 已經把 .eq('order_date') 或是 .gte('end_time') 等日期過濾條件完全移除了
-      // 現在只要這筆群組資料還存在於資料庫（沒有被按「關閉此團」刪除），就會全部抓出來
-      .order('end_time', { ascending: true }); // 依然按照結單時間排序，快結單的排在最前面
+      // ★ 修改：將原本的 end_time 排序，改為依據 created_at (建立時間) 由大到小排序
+      // 這樣最新開的團就會在陣列的最前面 (也就是畫面的最左邊)，並且一進網頁就會優先顯示
+      .order('created_at', { ascending: false });
     
     if (data) {
       setTodayGroups(data as any);
