@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Group, Product, SummaryItem } from '@/types';
 import { StoreBanner } from '@/components/StoreBanner';
 import { MenuCard } from '@/components/MenuCard';
@@ -27,6 +27,7 @@ export function ActiveGroupView({
   todayGroups, activeGroupId, activeGroup, menu, summary, timeLeft, isExpired,
   onSwitchGroup, onOpenStoreSelector, onOrder, onDeleteOrder, onCloseGroup, onScrollTop, onCloseGroupEarly
 }: Props) {
+  const summaryRef = useRef<HTMLDivElement>(null); // ★ 新增：用來鎖定統計區的 Ref
   
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
@@ -35,7 +36,8 @@ export function ActiveGroupView({
   const [customItemRemark, setCustomItemRemark] = useState(''); // ★ 新增狀態
   // ★ 新增：控制客製化區塊是否展開的狀態 (預設為 false 收合)
   const [isCustomExpanded, setIsCustomExpanded] = useState(false);
-
+  // ★ 新增：菜單搜尋關鍵字狀態
+  const [searchKeyword, setSearchKeyword] = useState('');
   const handleCustomOrder = () => {
     if (!customItemName || !customItemPrice) return alert('請輸入完整內容與金額');
     onOrder(customItemName, parseFloat(customItemPrice), customItemCount, customItemRemark)
@@ -45,6 +47,10 @@ export function ActiveGroupView({
         setCustomItemCount(1);
         setCustomItemRemark(''); // ★ 清空
       });
+  };
+  // ★ 新增：精準捲動到統計區的函式
+  const handleScrollToSummary = () => {
+    summaryRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   // ★ 整合更新：分享開團資訊 (加入智慧日期判斷與「這次吃」文案)
@@ -117,6 +123,11 @@ export function ActiveGroupView({
     }
   });
 
+  // ★ 新增：根據搜尋關鍵字過濾菜單
+  const filteredMenu = sortedMenu.filter(item => 
+    item.name.toLowerCase().includes(searchKeyword.toLowerCase())
+  );
+
   return (
     <>
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm print:hidden">
@@ -124,7 +135,10 @@ export function ActiveGroupView({
           {todayGroups.map(group => (
             <button
               key={group.id}
-              onClick={() => onSwitchGroup(group.id, group.store_id)}
+              onClick={() => {
+                setSearchKeyword(''); // ★ 新增：切換群組時，清空搜尋過濾器的內容
+                onSwitchGroup(group.id, group.store_id);
+              }}
               className={`flex flex-col items-start px-5 py-1.5 rounded-xl transition-all border ${
                 activeGroupId === group.id 
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-105' 
@@ -151,6 +165,17 @@ export function ActiveGroupView({
         onShowLargeImage={() => setShowLargeImage(true)} 
         onCloseGroup={onCloseGroup}
       />
+
+      {/* ★ 新增：捲動到明細按鈕 (風格與向上按鈕完全一致，位置設在 bottom-24) */}
+      <button 
+        onClick={handleScrollToSummary} 
+        className="fixed bottom-24 right-8 z-30 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden" 
+        title="前往訂單明細"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+        </svg>
+      </button>
       
       <button onClick={onScrollTop} className="fixed bottom-8 right-8 z-30 bg-gray-700/80 text-white p-3 rounded-full shadow-lg backdrop-blur-sm hover:bg-gray-900 transition-all duration-300 print:hidden" title="回到頂部">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
@@ -229,9 +254,31 @@ export function ActiveGroupView({
           )}
         </div>
 
+        {/* ★ 新增：菜單搜尋過濾區塊 */}
+        <div className="mb-6 print:hidden">
+          <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl px-4 py-3 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-sm">
+            <span className="text-gray-400 mr-3">🔍</span>
+            <input 
+              type="text" 
+              placeholder="搜尋餐點名稱..." 
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              className="w-full bg-transparent border-none text-gray-700 focus:outline-none font-medium placeholder-gray-400"
+            />
+            {searchKeyword && (
+              <button 
+                onClick={() => setSearchKeyword('')} 
+                className="text-gray-400 hover:text-gray-600 font-bold ml-2"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* 菜單列表 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
-          {sortedMenu.map((item) => (
+          {filteredMenu.map((item) => (
             <MenuCard key={item.id} name={item.name} description={item.description} price={item.price} options={item.options} isExpired={isExpired} 
             onOrder={(qty, remark, selectedOption) => {
                 // ★ 2. 關鍵魔法：如果有選口味，就把口味加到名字後面；沒選就用原名
@@ -242,18 +289,20 @@ export function ActiveGroupView({
             />
           ))}
         </div>
-
-        <OrderSummary 
-          storeName={activeGroup.store.name} 
-          storePhone={activeGroup.store.phone} /* ★ 新增這行：把電話傳給統計表 */
-          summary={summary} 
-          totalAmount={Math.round(summary.reduce((a, b) => a + b.total, 0) * 10) / 10} 
-          totalCount={summary.reduce((a, b) => a + b.count, 0)} 
-          isExpired={isExpired} 
-          endTime={activeGroup.end_time} /* ★ 新增這行：把結單時間傳進去 */
-          onDeleteOrder={onDeleteOrder} 
-          onOrder={onOrder}
-        />
+          {/* ★ 修改：加上 Ref 與捲動偏移位 (scroll-mt-20 是為了避開 sticky header) */}
+        <div ref={summaryRef} className="scroll-mt-20">
+          <OrderSummary 
+            storeName={activeGroup.store.name} 
+            storePhone={activeGroup.store.phone} /* ★ 新增這行：把電話傳給統計表 */
+            summary={summary} 
+            totalAmount={Math.round(summary.reduce((a, b) => a + b.total, 0) * 10) / 10} 
+            totalCount={summary.reduce((a, b) => a + b.count, 0)} 
+            isExpired={isExpired} 
+            endTime={activeGroup.end_time} /* ★ 新增這行：把結單時間傳進去 */
+            onDeleteOrder={onDeleteOrder} 
+            onOrder={onOrder}
+          />
+        </div>
       </div>
 
       {showLargeImage && activeGroup.store.image_url && (
