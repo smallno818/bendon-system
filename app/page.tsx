@@ -46,7 +46,9 @@ export default function Home() {
   };
 
   const handleDeleteSubmit = async (orderId: number, customerName: string) => {
-    const confirmName = prompt(`確定要刪除 ${customerName} 的這份餐點嗎？\n請輸入你的名字「${customerName}」進行確認：`);
+    const savedName = localStorage.getItem('bendon_user_name') || '';
+
+    const confirmName = prompt(`確定要刪除 ${customerName} 的這份餐點嗎？\n請輸入你的名字「${customerName}」進行確認：`, savedName);
     if (confirmName === customerName) {
       try { await deleteOrder(orderId); } 
       catch (e: any) { alert('刪除失敗：' + e.message); }
