@@ -95,6 +95,18 @@ export default function AdminPage() {
     const finalPhone = newStorePhone.trim() !== '' ? newStorePhone : (existingStore ? existingStore.phone : null);
     const finalImageUrl = newStoreImage !== '' ? newStoreImage : (existingStore ? existingStore.image_url : null);
 
+    // ==========================================
+    // ★ 新增：檢查是否需要刪除舊照片
+    // 如果是更新已存在的店家，且這次有上傳新照片，並且新舊網址不一樣
+    if (existingStore && existingStore.image_url && newStoreImage !== '' && existingStore.image_url !== newStoreImage) {
+      const oldFileName = existingStore.image_url.split('/').pop();
+      if (oldFileName) {
+        // 從 Supabase Storage 中刪除舊照片檔案
+        await supabase.storage.from('stores_picture').remove([oldFileName]);
+      }
+    }
+    // ==========================================
+
     const { error } = await supabase.from('stores').upsert([{ 
       name: newStoreName.trim(), image_url: finalImageUrl, phone: finalPhone, category: newStoreCategory // ★ 新增這行寫入資料庫
     }], { onConflict: 'name' });
