@@ -394,7 +394,19 @@ export function useGroupOrders() {
     // 更新完後重新抓取群組資料，讓畫面瞬間變成「已結單」
     await fetchTodayGroups(); 
   };
-
+  // --- ★ 新增：將列印狀態寫入資料庫 ---
+  const markGroupAsPrinted = async (groupId: number) => {
+    const { error } = await supabase
+      .from('daily_groups')
+      .update({ is_printed: true })
+      .eq('id', groupId);
+      
+    if (!error) {
+      fetchTodayGroups(); // 更新成功後，重新撈取資料讓畫面同步
+    } else {
+      console.error('更新列印狀態失敗:', error);
+    }
+  };
   return {
     todayGroups,
     activeGroupId,
@@ -414,5 +426,6 @@ export function useGroupOrders() {
     createGroup,
     closeGroup,
     closeGroupEarly, // ★ 記得把它 return 出去
+    markGroupAsPrinted,
   };
 }

@@ -23,7 +23,7 @@ export default function Home() {
     todayGroups, activeGroupId, activeGroup, storeList, menu, summary, 
     loading, timeLeft, isExpired,
     switchGroup, createOrder, deleteOrder, createGroup, closeGroup, closeGroupEarly,
-    historyLogs, fetchHistoryByDate // ★ 把這兩個加進來
+    historyLogs, fetchHistoryByDate, markGroupAsPrinted // ★ 把這兩個加進來
   } = useGroupOrders();
 
   // 2. 本地 UI 狀態
@@ -34,23 +34,20 @@ export default function Home() {
 
   // ==========================================
   // ★ 新增：控制關閉防呆與列印狀態
-  const [hasPrinted, setHasPrinted] = useState(false);
   const [showUnprintedWarning, setShowUnprintedWarning] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-const [showHistoryModal, setShowHistoryModal] = useState(false); // ★ 新增：控制歷史查詢彈窗
+  const [showHistoryModal, setShowHistoryModal] = useState(false); // ★ 新增：控制歷史查詢彈窗
 
-  // ★ 新增：監聽瀏覽器的列印動作
+  // ★ 修改：監聽列印動作時，直接寫入資料庫！
   useEffect(() => {
-    // 當切換群組時，預設為未列印
-    setHasPrinted(false); 
-    
-    // 監聽列印完成事件
-    const handlePrint = () => setHasPrinted(true);
+    const handlePrint = () => {
+      if (activeGroupId) {
+        markGroupAsPrinted(activeGroupId);
+      }
+    };
     window.addEventListener('afterprint', handlePrint);
-    
     return () => window.removeEventListener('afterprint', handlePrint);
-  }, [activeGroupId]); 
-  // ==========================================
+  }, [activeGroupId, markGroupAsPrinted]);
 
   // 3. 事件處理 (Wrappers)
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -85,16 +82,13 @@ const [showHistoryModal, setShowHistoryModal] = useState(false); // ★ 新增�
     } catch (e: any) { alert('開團失敗：' + e.message); }
   };
 
-  // ==========================================
-  // ★ 修改：觸發防呆彈窗邏輯
   const handleCloseGroupSubmit = async () => {
     if (!activeGroup) return;
     
-    if (!hasPrinted) {
-      // 1. 如果還沒列印，先跳未列印警告
+    // ★ 修改：直接判斷資料庫裡的 is_printed 欄位
+    if (!activeGroup.is_printed) {
       setShowUnprintedWarning(true);
     } else {
-      // 2. 如果已經列印過，直接跳最終關閉確認
       setShowCloseModal(true);
     }
   };
