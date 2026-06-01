@@ -191,7 +191,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-fadeIn border-l-8 border-amber-500">
             <h3 className="text-xl font-bold text-amber-600 mb-2">⚠️ 尚未列印明細</h3>
             <p className="text-gray-600 mb-6 font-medium">
-              您似乎還沒有列印或備份這次的訂單明細。<br/>確定要<span className="text-amber-600 font-bold">不列印</span>就直接關閉團購嗎？
+              您似乎還沒有列印這次的訂單明細。<br/>確定要<span className="text-amber-600 font-bold">不列印</span>就直接關閉團購嗎？
             </p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => setShowUnprintedWarning(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition">
