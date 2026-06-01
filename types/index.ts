@@ -46,4 +46,5 @@ export type Group = {
   end_time: string; 
   name: string | null; 
   store: Store 
+  order_date: string;
 };

@@ -12,7 +12,7 @@ export function useGroupOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [summary, setSummary] = useState<SummaryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
 
@@ -107,6 +107,23 @@ export function useGroupOrders() {
     setLoading(false);
   }, []);
 
+  // --- ★ 修改：改為精準依「結單日期」抓取歷史紀錄 ---
+  const fetchHistoryByDate = useCallback(async (dateStr: string) => {
+    // 建立當天臺灣時間的 00:00:00 與 23:59:59 範圍，轉為 ISO 格式給資料庫比對
+    const startOfDay = new Date(`${dateStr}T00:00:00+08:00`).toISOString();
+    const endOfDay = new Date(`${dateStr}T23:59:59+08:00`).toISOString();
+
+    const { data, error } = await supabase
+      .from('group_history_logs')
+      .select('*')
+      .gte('end_time', startOfDay) // ★ 大於等於當天 00:00
+      .lte('end_time', endOfDay)   // ★ 小於等於當天 23:59
+      .order('created_at', { ascending: false });
+    
+    if (data) setHistoryLogs(data);
+    if (error) console.error('獲取歷史紀錄失敗:', error);
+  }, []);
+
   // --- 監聽資料變化並自動導航 (Auto-Switch Logic) ---
   useEffect(() => {
     if (loading) return;
@@ -139,12 +156,12 @@ export function useGroupOrders() {
     // 1. 抓取所有店家
     const { data: storesData } = await supabase.from('stores').select('*').order('id');
     
-    // 2. ★ 修改：抓取近 21 天的歷史紀錄
+    // 2. ★ 修改：改去全新的快照表 (group_history_logs) 抓取近 21 天的紀錄
     const twentyOneDaysAgo = new Date();
     twentyOneDaysAgo.setDate(twentyOneDaysAgo.getDate() - 21);
 
     const { data: recentHistory } = await supabase
-      .from('store_history')
+      .from('group_history_logs') // ★ 這裡改了
       .select('store_id')
       .gte('created_at', twentyOneDaysAgo.toISOString());
 
@@ -152,24 +169,22 @@ export function useGroupOrders() {
     const counts: Record<number, number> = {};
     if (recentHistory) {
       recentHistory.forEach(h => {
-        const sid = Number(h.store_id); // 確保 ID 是數字
+        const sid = Number(h.store_id);
         counts[sid] = (counts[sid] || 0) + 1;
       });
     }
 
     if (storesData) {
-      // 4. ★ 強制合併邏輯
+      // 4. 強制合併邏輯
       const enrichedStores = storesData.map(store => {
         const storeId = Number(store.id);
         const count = counts[storeId] || 0;
         
-        // 這裡直接建立一個新的物件，並明確賦予 recentCount 屬性
         return Object.assign({}, store, {
           recentCount: count
         });
       });
       
-      console.log("🛠️ 最終檢查 (逐筆檢查):", enrichedStores[0]); // 印出第一筆看看
       setStoreList(enrichedStores);
     }
   }, []);
@@ -318,16 +333,13 @@ export function useGroupOrders() {
   const closeGroup = async () => {
     if (!activeGroupId) return;
 
-    // 取得當前選中團購的即時資料
     const currentGroup = todayGroups.find(g => g.id === activeGroupId);
     
     if (currentGroup) {
-      // 1. 檢查是否結單
       const now = new Date().getTime();
       const end = new Date(currentGroup.end_time).getTime();
       const isGroupExpired = now >= end;
 
-      // 2. ★ 嚴謹檢查：直接從資料庫確認該團是否有訂單，不依賴本地 orders 狀態
       const { count } = await supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
@@ -335,21 +347,33 @@ export function useGroupOrders() {
 
       const hasOrders = (count || 0) > 0;
 
-      // 條件符合才寫入歷史
+      // ★ 核心修改：如果是已過期且有訂單，我們進行 JSON 快照備份
       if (isGroupExpired && hasOrders) {
-        await supabase.from('store_history').insert([{ store_id: currentGroup.store_id }]);
+        // 計算總份數與總金額
+        const totalCount = summary.reduce((a, b) => a + b.count, 0);
+        const totalAmount = summary.reduce((a, b) => a + b.total, 0);
+
+        // 打包成 JSON 並寫入 group_history_logs
+        const { error: snapError } = await supabase.from('group_history_logs').insert([{
+          store_id: currentGroup.store_id, // ★ 記錄 store_id 供熱門計算使用
+          store_name: currentGroup.store.name,
+          order_date: currentGroup.order_date,
+          end_time: currentGroup.end_time,
+          total_count: totalCount,
+          total_amount: Math.round(totalAmount * 10) / 10,
+          summary_json: summary // Supabase 會自動將這個陣列轉成 JSONB 儲存
+        }]);
+
+        if (snapError) console.error('寫入快照失敗:', snapError);
       }
     }
     
-    // 1. 先刪除訂單
+    // 清空舊資料，保持系統乾淨
     await supabase.from('orders').delete().eq('group_id', activeGroupId);
-    
-    // 2. 再刪除群組
     const { error } = await supabase.from('daily_groups').delete().eq('id', activeGroupId);
     
     if (error) throw error;
     
-    // 3. 本地也立刻執行刪除邏輯，不依賴 Real-time 回傳，確保自己這台最順
     setTodayGroups((prev) => prev.filter(g => g.id !== activeGroupId));
   };
   // --- ★ 新增：提早結單 (將結單時間改為現在) ---
@@ -374,6 +398,8 @@ export function useGroupOrders() {
   return {
     todayGroups,
     activeGroupId,
+    historyLogs,          // ★ 新增這行
+    fetchHistoryByDate,   // ★ 新增這行
     activeGroup: todayGroups.find(g => g.id === activeGroupId),
     storeList,
     menu,
