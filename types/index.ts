@@ -47,4 +47,5 @@ export type Group = {
   name: string | null; 
   store: Store 
   order_date: string;
+  is_printed?: boolean;
 };
