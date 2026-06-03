@@ -12,6 +12,7 @@ export function HistoryModal({ onClose, historyLogs, fetchHistoryByDate }: Props
   // 預設選擇今天的日期
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [printingId, setPrintingId] = useState<number | null>(null);
 
   // 當選擇的日期改變時，重新撈取資料
   useEffect(() => {
@@ -65,9 +66,10 @@ export function HistoryModal({ onClose, historyLogs, fetchHistoryByDate }: Props
               {historyLogs.map(log => {
                 // 將 JSON 轉回 SummaryItem 陣列
                 const summary: SummaryItem[] = log.summary_json || [];
-                
+                // ★ 判斷：如果系統正在列印，且這筆不是我們點擊的那筆，就加上 print:hidden 讓它在紙上消失！
+                const isHiddenDuringPrint = printingId !== null && printingId !== log.id;
                 return (
-                  <div key={log.id} className="relative">
+                  <div key={log.id} className={`relative ${isHiddenDuringPrint ? 'print:hidden' : ''}`}>
                     {/* ★ 直接使用原本的 OrderSummary 元件 */}
                     <OrderSummary 
                       storeName={log.store_name} 
@@ -78,6 +80,15 @@ export function HistoryModal({ onClose, historyLogs, fetchHistoryByDate }: Props
                       isExpired={true} // ★ 傳入 true，它就會自動隱藏 + 跟 x 按鈕，變成純閱讀模式！
                       endTime={log.end_time}
                       onDeleteOrder={() => {}} // 歷史紀錄不能刪除，所以給個空函式
+                      // ★ 新增：自訂列印行為
+                      onPrint={() => {
+                        setPrintingId(log.id); // 1. 先告訴系統「我要印這個 ID」
+                        // 2. 給 React 100 毫秒的時間更新畫面（把其他筆隱藏起來）再觸發列印
+                        setTimeout(() => {
+                          window.print();
+                          setPrintingId(null); // 3. 印完之後，把狀態清空，讓大家恢復原狀
+                        }, 100);
+                      }}
                     />
                   </div>
                 );

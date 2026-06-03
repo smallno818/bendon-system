@@ -11,9 +11,10 @@ type Props = {
   endTime: string;
   onDeleteOrder: (id: number, name: string) => void;
   onOrder?: (item: string, price: number, qty: number, remark?: string) => void; 
+  onPrint?: () => void;
 };
 
-export function OrderSummary({ storeName, storePhone, summary, totalAmount, totalCount, isExpired, endTime, onDeleteOrder, onOrder }: Props) {
+export function OrderSummary({ storeName, storePhone, summary, totalAmount, totalCount, isExpired, endTime, onDeleteOrder, onOrder, onPrint }: Props) {
   
   const formattedEndTime = new Date(endTime).toLocaleString('zh-TW', {
     year: 'numeric',
@@ -30,7 +31,7 @@ export function OrderSummary({ storeName, storePhone, summary, totalAmount, tota
         @media print {
           @page { margin: 5mm; }
           body { -webkit-print-color-adjust: exact; }
-          .print-content { zoom: 0.70; width: 100%; }
+          .print-content { zoom: 0.90; width: 100%; }
           .no-print { display: none; }
         }
       `}</style>
@@ -62,7 +63,7 @@ export function OrderSummary({ storeName, storePhone, summary, totalAmount, tota
           </div>
           
           <div className="flex gap-2 print:hidden w-full sm:w-auto">
-            <button onClick={() => window.print()} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-md font-bold transition">
+            <button onClick={onPrint || (() => window.print())} className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm shadow-md font-bold transition">
               🖨️ 列印訂單
             </button>
           </div>
@@ -74,7 +75,7 @@ export function OrderSummary({ storeName, storePhone, summary, totalAmount, tota
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse print:text-sm">
+            <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b border-gray-200 print:bg-gray-100 print:text-black">
                   <th className="p-3 font-semibold min-w-[140px]">品項</th>
