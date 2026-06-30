@@ -347,25 +347,38 @@ export function useGroupOrders() {
 
       const hasOrders = (count || 0) > 0;
 
-      // ★ 核心修改：如果是已過期且有訂單，我們進行 JSON 快照備份
       if (isGroupExpired && hasOrders) {
-        // 計算總份數與總金額
-        const totalCount = summary.reduce((a, b) => a + b.count, 0);
-        const totalAmount = summary.reduce((a, b) => a + b.total, 0);
+          const totalCount = summary.reduce((a, b) => a + b.count, 0);
+          const totalAmount = summary.reduce((a, b) => a + b.total, 0);
 
-        // 打包成 JSON 並寫入 group_history_logs
-        const { error: snapError } = await supabase.from('group_history_logs').insert([{
-          store_id: currentGroup.store_id, // ★ 記錄 store_id 供熱門計算使用
-          store_name: currentGroup.store.name,
-          order_date: currentGroup.order_date,
-          end_time: currentGroup.end_time,
-          total_count: totalCount,
-          total_amount: Math.round(totalAmount * 10) / 10,
-          summary_json: summary // Supabase 會自動將這個陣列轉成 JSONB 儲存
-        }]);
+          // 將訂單明細打包成 JSON 寫入 group_history_logs
+          const { error: snapError } = await supabase.from('group_history_logs').insert([{
+            original_group_id: activeGroupId, // ★ 1. 塞入原本的群組 ID，作為唯一防護鎖
+            store_id: currentGroup.store_id, 
+            store_name: currentGroup.store.name,
+            order_date: currentGroup.order_date,
+            end_time: currentGroup.end_time,
+            total_count: totalCount,
+            total_amount: Math.round(totalAmount * 10) / 10,
+            summary_json: summary 
+          }]);
 
-        if (snapError) console.error('寫入快照失敗:', snapError);
-      }
+          // ★ 2. 捕捉錯誤
+          if (snapError) {
+            // '23505' 是 PostgreSQL 的 Unique Violation (違反唯一值) 錯誤代碼
+            if (snapError.code === '23505') {
+              console.log('此團已被處理過，跳過重複備份');
+              alert('動作太慢啦！此團購剛好已經被關閉並備份囉！');
+              // 把這團從畫面上清掉
+              setTodayGroups((prev) => prev.filter(g => g.id !== activeGroupId));
+              return; // ★ 提早結束，絕對不要往下執行刪除動作
+            } else {
+              console.error('寫入快照失敗:', snapError);
+              alert('備份失敗，請稍後再試或查看開發者工具');
+              return; 
+            }
+          }
+        }
     }
     
     // 清空舊資料，保持系統乾淨
