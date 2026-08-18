@@ -31,7 +31,7 @@ export default function Home() {
   const [showStoreSelector, setShowStoreSelector] = useState(false);
   const [preSelectedStoreId, setPreSelectedStoreId] = useState<number | null>(null);
   const [inputEndDateTime, setInputEndDateTime] = useState('');
-
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   // ==========================================
   // ★ 新增：控制關閉防呆與列印狀態
   const [showUnprintedWarning, setShowUnprintedWarning] = useState(false);
@@ -72,6 +72,10 @@ export default function Home() {
   };
 
   const handleCreateGroupSubmit = async (storeId: number, endTime: string, groupName: string) => {
+    // ★ 防呆：如果已經在處理中，直接擋掉後續的請求
+    if (isCreatingGroup) return; 
+    
+    setIsCreatingGroup(true); // 上鎖
     try {
       await createGroup(storeId, endTime, groupName);
       alert('✅ 開團成功！');
@@ -79,7 +83,11 @@ export default function Home() {
       setShowStoreSelector(false);
       setPreSelectedStoreId(null);
       setInputEndDateTime('');
-    } catch (e: any) { alert('開團失敗：' + e.message); }
+    } catch (e: any) { 
+      alert('開團失敗：' + e.message); 
+    } finally {
+      setIsCreatingGroup(false); // ★ 不管成功失敗，最後都要解鎖
+    }
   };
 
   const handleCloseGroupSubmit = async () => {
@@ -107,6 +115,9 @@ export default function Home() {
 
   // 點擊卡片邏輯 (統一處理)
   const handleCardClick = (storeId: number) => {
+    // ★ 防呆：如果正在開團中，直接忽略所有的卡片點擊
+    if (isCreatingGroup) return;
+    
     if (todayGroups.length >= 5) {
       return alert('❌ 目前同時開團數量已達上限 (5 個)！\n請先將部分團購結單並刪除後，再開啟新團。');
     }
