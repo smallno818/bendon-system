@@ -3,7 +3,8 @@ import { SummaryItem } from '@/types';
 
 type Props = {
   storeName: string;
-  storePhone?: string | null; // ★ 新增：接收店家電話 (加上 ? 和 null 允許沒有電話的情況)
+  storePhone?: string | null; 
+  groupName?: string | null; // ★ 1. 新增：接收團購名稱參數 (設為可選，才不會影響到歷史紀錄)
   summary: SummaryItem[];
   totalAmount: number;
   totalCount: number;
@@ -14,7 +15,7 @@ type Props = {
   onPrint?: () => void;
 };
 
-export function OrderSummary({ storeName, storePhone, summary, totalAmount, totalCount, isExpired, endTime, onDeleteOrder, onOrder, onPrint }: Props) {
+export function OrderSummary({ storeName, storePhone, groupName, summary, totalAmount, totalCount, isExpired, endTime, onDeleteOrder, onOrder, onPrint }: Props) {
   
   const formattedEndTime = new Date(endTime).toLocaleString('zh-TW', {
     year: 'numeric',
@@ -45,7 +46,6 @@ export function OrderSummary({ storeName, storePhone, summary, totalAmount, tota
             </h2>
             
             <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-2">
-              {/* ★ 新增：顯示店家電話 (如果有提供的話) */}
               {storePhone && (
                 <>
                   <span className="font-medium text-gray-600 print:text-black print:font-bold">
@@ -59,6 +59,16 @@ export function OrderSummary({ storeName, storePhone, summary, totalAmount, tota
               <span className="print:text-black print:font-bold print:text-base">
                 結單時間：{formattedEndTime}
               </span>
+              
+              {/* ★ 2. 新增：如果這團有設定團名，就接在後面顯示出來 */}
+              {groupName && (
+                <>
+                  <span className="hidden sm:inline text-gray-300 print:hidden">|</span>
+                  <span className="print:text-black print:font-bold print:text-base">
+                {groupName}
+                  </span>
+                </>
+              )}
             </div>
           </div>
           
