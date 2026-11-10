@@ -4,7 +4,7 @@ import { SummaryItem } from '@/types';
 type Props = {
   storeName: string;
   storePhone?: string | null; 
-  groupName?: string | null; // ★ 1. 新增：接收團購名稱參數 (設為可選，才不會影響到歷史紀錄)
+  groupName?: string | null; 
   summary: SummaryItem[];
   totalAmount: number;
   totalCount: number;
@@ -17,6 +17,20 @@ type Props = {
 
 export function OrderSummary({ storeName, storePhone, groupName, summary, totalAmount, totalCount, isExpired, endTime, onDeleteOrder, onOrder, onPrint }: Props) {
   
+  // ★ 智慧計算筆數邏輯 (水餃算1筆，其他依數量算)
+  let totalOrders = 0;
+  summary.forEach(item => {
+    const isDumpling = item.name.includes('水餃');
+    
+    item.orderDetails.forEach(detail => {
+      if (isDumpling) {
+        totalOrders += 1;
+      } else {
+        totalOrders += detail.quantity;
+      }
+    });
+  });
+
   const formattedEndTime = new Date(endTime).toLocaleString('zh-TW', {
     year: 'numeric',
     month: '2-digit',
@@ -60,12 +74,11 @@ export function OrderSummary({ storeName, storePhone, groupName, summary, totalA
                 結單時間：{formattedEndTime}
               </span>
               
-              {/* ★ 2. 新增：如果這團有設定團名，就接在後面顯示出來 */}
               {groupName && (
                 <>
                   <span className="hidden sm:inline text-gray-300 print:hidden">|</span>
                   <span className="print:text-black print:font-bold print:text-base">
-                {groupName}
+                    {groupName}
                   </span>
                 </>
               )}
@@ -167,7 +180,7 @@ export function OrderSummary({ storeName, storePhone, groupName, summary, totalA
               <tfoot>
                 <tr className="bg-gray-900 text-white font-bold print:bg-gray-200 print:text-black">
                   <td className="p-3 rounded-bl-xl print:rounded-none border-t border-black" colSpan={2}>總計</td>
-                  <td className="p-3 text-center border-t border-black">{totalCount} 份</td>
+                  <td className="p-3 text-center border-t border-black">{totalOrders} 份</td>
                   <td className="p-3 text-right text-xl text-yellow-400 print:text-black border-t border-black">
                     ${totalAmount}
                   </td>
