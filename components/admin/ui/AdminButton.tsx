@@ -14,7 +14,7 @@ export function AdminButton({ variant = 'primary', className = '', children, ...
     secondary: "bg-slate-200 text-slate-700 px-6 py-2.5 rounded-xl hover:bg-slate-300",
     danger: "bg-rose-500 text-white px-6 py-2.5 rounded-xl hover:bg-rose-600",
     'icon-close': "w-10 h-10 rounded-xl bg-slate-200 text-slate-500 hover:bg-rose-500 hover:text-white",
-    'icon-delete': "w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white opacity-0 group-hover:opacity-100"
+    'icon-delete': "w-8 h-8 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white"
   };
 
   return (

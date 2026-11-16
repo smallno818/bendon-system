@@ -25,7 +25,6 @@ export function EditMenuModal({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiPreviewItems, setAiPreviewItems] = useState<any[] | null>(null);
   
-  // ★ 新增：控制是否進入 AI 工作區、儲存圖片與自訂提示詞的狀態
   const [isAiMode, setIsAiMode] = useState(false);
   const [aiImage, setAiImage] = useState<{ base64: string; type: string; url: string } | null>(null);
   const [aiPrompt, setAiPrompt] = useState(`
@@ -42,7 +41,6 @@ export function EditMenuModal({
       ]
     `);
 
-  // ★ 新增：選擇圖片的邏輯
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; 
@@ -57,15 +55,14 @@ export function EditMenuModal({
         type: file.type,
         url: URL.createObjectURL(file)
       });
-      setAiPreviewItems(null); // 上傳新圖片時清空舊的預覽
+      setAiPreviewItems(null); 
     };
   };
 
-  // ★ 新增：發送給 API 進行辨識
   const handleRecognize = async () => {
     if (!aiImage) return alert('請先上傳圖片！');
     setIsAiLoading(true);
-    setAiPreviewItems(null); // 辨識前先清空舊結果
+    setAiPreviewItems(null); 
 
     try {
       const response = await fetch('/api/extract-menu', {
@@ -74,7 +71,7 @@ export function EditMenuModal({
         body: JSON.stringify({ 
           base64Image: aiImage.base64, 
           mimeType: aiImage.type,
-          prompt: aiPrompt // 帶入自訂提示詞
+          prompt: aiPrompt
         })
       });
       const result = await response.json();
@@ -101,7 +98,7 @@ export function EditMenuModal({
       alert(`✅ 成功匯入 ${productsToUpsert.length} 筆品項！`);
       setAiPreviewItems(null);
       setAiImage(null);
-      setIsAiMode(false); // 匯入成功後自動返回一般編輯模式
+      setIsAiMode(false); 
     } catch (error: any) {
       alert('存入資料庫失敗: ' + error.message);
     } finally {
@@ -144,10 +141,7 @@ export function EditMenuModal({
 
         <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
           {isAiMode ? (
-            // ★ AI 工作區介面
             <div className="flex flex-col md:flex-row gap-6 h-full animate-fadeIn">
-              
-              {/* 左側：設定區 */}
               <div className="w-full md:w-[40%] flex flex-col gap-4">
                 <label className="border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 transition min-h-[200px] bg-white relative overflow-hidden group">
                   {aiImage ? (
@@ -177,7 +171,6 @@ export function EditMenuModal({
                 </AdminButton>
               </div>
 
-              {/* 右側：預覽結果區 */}
               <div className="w-full md:w-[60%] flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm relative">
                 <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-slate-700 flex justify-between items-center">
                   <span>辨識預覽結果</span>
@@ -185,24 +178,26 @@ export function EditMenuModal({
                      <AdminButton variant="primary" onClick={handleConfirmAiImport} disabled={isAiLoading}>✅ 確認加入</AdminButton>
                   )}
                 </div>
-                <div className="p-0 overflow-auto flex-1">
+                
+                {/* ★ 預覽區塊：外層 overflow-x-auto */}
+                <div className="p-0 overflow-x-auto flex-1">
                   {aiPreviewItems ? (
-                    <table className="w-full text-left">
+                    <table className="w-full text-left border-collapse">
                       <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-sm z-10">
                         <tr className="border-b text-slate-500 text-sm">
-                          <th className="p-4 font-bold">品項</th>
-                          <th className="p-4 font-bold">價格</th>
-                          <th className="p-4 font-bold">備註</th>
-                          <th className="p-4 font-bold">口味選項</th>
+                          <th className="p-4 font-bold whitespace-nowrap min-w-[150px]">品項</th>
+                          <th className="p-4 font-bold whitespace-nowrap min-w-[80px]">價格</th>
+                          <th className="p-4 font-bold whitespace-nowrap min-w-[150px]">備註</th>
+                          <th className="p-4 font-bold whitespace-nowrap min-w-[150px]">口味選項</th>
                         </tr>
                       </thead>
                       <tbody>
                         {aiPreviewItems.map((item, i) => (
                           <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition">
-                            <td className="p-4 font-bold text-slate-700">{item.name}</td>
-                            <td className="p-4 text-indigo-600 font-bold">${item.price}</td>
-                            <td className="p-4 text-slate-500 text-sm">{item.description}</td>
-                            <td className="p-4 text-slate-500 text-sm">{item.options}</td>
+                            <td className="p-4 font-bold text-slate-700 min-w-[150px] whitespace-nowrap">{item.name}</td>
+                            <td className="p-4 text-indigo-600 font-bold min-w-[80px] whitespace-nowrap">${item.price}</td>
+                            <td className="p-4 text-slate-500 text-sm min-w-[150px] whitespace-nowrap">{item.description}</td>
+                            <td className="p-4 text-slate-500 text-sm min-w-[150px] whitespace-nowrap">{item.options}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -214,54 +209,55 @@ export function EditMenuModal({
                   )}
                 </div>
               </div>
-
             </div>
           ) : (
-            // ★ 原本的一般編輯菜單表格 (保持不變)
+            
+            // ★ 一般編輯區塊：外層 overflow-x-auto
             <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-sm animate-fadeIn">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
-                    <th className="p-4 font-bold min-w-[180px]">品項名稱</th>
-                    <th className="p-4 font-bold min-w-[120px]">價格</th>
-                    <th className="p-4 font-bold min-w-[200px]">備註</th>
-                    <th className="p-4 font-bold w-48">口味選項</th>
-                    <th className="p-4 font-bold w-10 text-center">操作</th>
+                    <th className="p-4 font-bold whitespace-nowrap min-w-[180px]">品項名稱</th>
+                    <th className="p-4 font-bold whitespace-nowrap min-w-[120px]">價格</th>
+                    <th className="p-4 font-bold whitespace-nowrap min-w-[180px]">備註</th>
+                    <th className="p-4 font-bold whitespace-nowrap min-w-[180px]">口味選項</th>
+                    <th className="p-4 font-bold whitespace-nowrap min-w-[80px] text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   {menuItems.map(item => (
                     <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50/50 group transition-colors">
-                      <td className="p-4 font-bold text-slate-700">{item.name}</td>
-                      <td className="p-4">
+                      {/* ★ 在所有包含 Input 的 td 強制加上 min-w 鎖定尺寸 */}
+                      <td className="p-4 font-bold text-slate-700 min-w-[180px] whitespace-nowrap">{item.name}</td>
+                      <td className="p-4 min-w-[120px]">
                         <AdminInput icon="$" key={`price-${item.price}`} type="number" defaultValue={item.price} onBlur={(e) => onUpdateItem(item.id, 'price', parseFloat(e.target.value))} />
                       </td>
-                      <td className="p-4">
+                      <td className="p-4 min-w-[180px]">
                         <AdminInput key={`desc-${item.description}`} type="text" defaultValue={item.description || ''} placeholder="可留空" onBlur={(e) => onUpdateItem(item.id, 'description', e.target.value)} className="text-sm" />
                       </td>
-                      <td className="p-4">
+                      <td className="p-4 min-w-[180px]">
                         <AdminInput key={`opt-${item.options}`} type="text" defaultValue={item.options || ''} placeholder="例: 黑胡椒,蘑菇" onBlur={(e) => onUpdateItem(item.id, 'options', e.target.value)} className="text-sm" />
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-4 text-center min-w-[80px]">
                         <AdminButton variant="icon-delete" onClick={() => onDeleteItem(item.id)}>🗑️</AdminButton>
                       </td>
                     </tr>
                   ))}
                   
                   <tr className="bg-indigo-50/30">
-                    <td className="p-4">
+                    <td className="p-4 min-w-[180px]">
                       <AdminInput type="text" value={newItemName} onChange={e => onNameChange(e.target.value)} className="bg-white border-indigo-200" placeholder="餐點名稱" />
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 min-w-[120px]">
                       <AdminInput icon="$" type="number" value={newItemPrice} onChange={e => onPriceChange(e.target.value)} className="bg-white border-indigo-200" placeholder="價格" />
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 min-w-[180px]">
                       <AdminInput type="text" value={newItemDescription} onChange={e => onDescriptionChange(e.target.value)} className="bg-white border-indigo-200 text-sm" placeholder="備註" />
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 min-w-[180px]">
                       <AdminInput type="text" value={newItemOptions} onChange={e => onOptionsChange(e.target.value)} className="bg-white border-indigo-200 text-sm" placeholder="例: 黑胡椒,蘑菇" />
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 min-w-[80px]">
                       <AdminButton variant="primary" onClick={onAddItem} className="w-full" disabled={!newItemName || !newItemPrice}>新增</AdminButton>
                     </td>
                   </tr>
