@@ -20,7 +20,7 @@ export function OrderSummary({ storeName, storePhone, groupName, summary, totalA
   // ★ 智慧計算筆數邏輯 (水餃算1筆，其他依數量算)
   let totalOrders = 0;
   summary.forEach(item => {
-    const isDumpling = item.name.includes('水餃');
+    const isDumpling = item.name.includes('水餃') || item.name.includes('鍋貼');
     
     item.orderDetails.forEach(detail => {
       if (isDumpling) {
