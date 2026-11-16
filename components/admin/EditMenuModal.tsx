@@ -185,7 +185,7 @@ export function EditMenuModal({
                      <AdminButton variant="primary" onClick={handleConfirmAiImport} disabled={isAiLoading}>✅ 確認加入</AdminButton>
                   )}
                 </div>
-                <div className="p-0 overflow-y-auto flex-1">
+                <div className="p-0 overflow-auto flex-1">
                   {aiPreviewItems ? (
                     <table className="w-full text-left">
                       <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-sm z-10">
@@ -218,7 +218,7 @@ export function EditMenuModal({
             </div>
           ) : (
             // ★ 原本的一般編輯菜單表格 (保持不變)
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-fadeIn">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-sm animate-fadeIn">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-sm">
