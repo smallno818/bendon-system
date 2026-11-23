@@ -5,11 +5,12 @@ type Store = { id: number; name: string; };
 type Props = {
   stores: Store[];
   initialStoreId?: number | null;
+  isCreating?: boolean;
   onClose: () => void;
   onSubmit: (storeId: number, endTime: string, groupName: string) => void;
 };
 
-export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: Props) {
+export function StartGroupModal({ stores, initialStoreId, isCreating = false, onClose, onSubmit }: Props) {
   const [selectedStoreId, setSelectedStoreId] = useState<number | ''>('');
   const [endTime, setEndTime] = useState('');
   const [groupName, setGroupName] = useState('');
@@ -87,15 +88,21 @@ export function StartGroupModal({ stores, initialStoreId, onClose, onSubmit }: P
         <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3">
           <button 
             onClick={onClose}
-            className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition"
+            disabled={isCreating}
+            className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             取消
           </button>
           <button 
             onClick={handleSubmit}
-            className="flex-[2] py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition active:scale-95"
+            disabled={isCreating}
+            className={`flex-[2] py-3 font-bold rounded-xl transition ${
+              isCreating
+                ? 'bg-gray-400 text-white cursor-not-allowed shadow-none'
+                : 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95'
+            }`}
           >
-            確定開團！
+            {isCreating ? '開團中...' : '確定開團！'}
           </button>
         </div>
       </div>

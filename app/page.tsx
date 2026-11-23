@@ -144,6 +144,7 @@ export default function Home() {
         <StartGroupModal 
           stores={storeList} 
           initialStoreId={preSelectedStoreId}
+          isCreating={isCreatingGroup}
           onClose={() => { setShowStartGroupModal(false); setPreSelectedStoreId(null); }} 
           onSubmit={handleCreateGroupSubmit} 
         />

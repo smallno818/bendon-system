@@ -73,6 +73,15 @@ export default function AdminPage() {
     if (!file) return;
 
     setUploading(true);
+
+    // 連續上傳清理：在未儲存店家前若重新選取圖片，先將前一張暫存圖片自 Storage 移除
+    if (newStoreImage) {
+      const pendingFileName = newStoreImage.split('/').pop();
+      if (pendingFileName) {
+        await supabase.storage.from('stores_picture').remove([pendingFileName]);
+      }
+    }
+
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
